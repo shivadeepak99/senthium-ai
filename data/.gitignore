@@ -1,0 +1,11 @@
+# Data directories - raw telemetry logs should not be committed
+*.csv
+*.log
+*.npz
+*.h5
+*.pkl
+*.pt
+*.pth
+
+# But keep the directory structure
+!.gitkeep

@@ -126,13 +126,45 @@ pip install -r requirements.txt --force-reinstall
 sudo apt-get install xdg-utils gnome-screensaver
 ```
 
+## Data Collection & Training (Advanced)
+
+### Collect Training Data
+
+```bash
+# Interactive data collection demo
+python demo_data_collection.py --mode interactive
+
+# Or automated collection
+python demo_data_collection.py --mode automated
+```
+
+### Extract Features
+
+```bash
+# Extract ML features from collected data
+python -m senthium_ai.utils.feature_extractor data/raw -o data/processed/features.npz --normalize
+```
+
+### Train Model
+
+```bash
+# Train ANN model on your data
+python train_model.py --data data/processed/features.npz --epochs 100 --output models/my_model.pkl
+```
+
+### Use Trained Model
+
+Load your trained model in the predictor by modifying `senthium_ai/models/task_predictor.py`.
+
 ## Next Steps
 
 1. ✅ Run the demo and tests
 2. ✅ Try dry-run mode
 3. ✅ Customize config.yaml
 4. ✅ Enable face detection (optional)
-5. ✅ Run in production
+5. ✅ Collect training data (advanced)
+6. ✅ Train custom model (advanced)
+7. ✅ Run in production
 
 ## Need Help?
 

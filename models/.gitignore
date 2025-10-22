@@ -1,0 +1,9 @@
+# Saved models and checkpoints
+*.h5
+*.pkl
+*.pt
+*.pth
+*.onnx
+
+# Keep directory
+!.gitkeep
