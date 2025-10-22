@@ -1,0 +1,20 @@
+# Senthium AI Configuration
+
+# Process monitoring settings
+cpu_threshold: 5.0          # CPU usage threshold (%) to consider a process active
+check_interval: 1.0         # Time interval (seconds) between checks
+
+# Face detection settings
+enable_face_detection: false  # Enable/disable face-based presence verification
+camera_index: 0              # Camera device index (0 for default camera)
+
+# Update frequency
+update_interval: 10          # Seconds between lock state evaluations
+
+# Logging
+log_level: INFO             # DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_file: senthium_ai.log   # Log file path (null for console only)
+
+# Lock behavior
+apply_lock_state: true      # Actually apply lock states (false for dry-run)
+state_stability_samples: 5  # Number of samples for state stability
