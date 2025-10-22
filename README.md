@@ -232,18 +232,71 @@ senthium-ai/
 │   │   └── task_predictor.py    # ANN model
 │   ├── controllers/
 │   │   ├── __init__.py
-│   │   └── fuzzy_controller.py  # Fuzzy logic
+│   │   ├── fuzzy_controller.py  # Fuzzy logic
+│   │   └── lock_controller.py   # Platform-specific lock actions
 │   ├── monitors/
 │   │   ├── __init__.py
-│   │   └── process_monitor.py   # Process tracking
-│   └── detectors/
+│   │   ├── process_monitor.py   # Process tracking
+│   │   └── data_logger.py       # Telemetry data collection
+│   ├── detectors/
+│   │   ├── __init__.py
+│   │   └── face_detector.py     # Face detection
+│   └── utils/
 │       ├── __init__.py
-│       └── face_detector.py     # Face detection
-├── senthium_ai.py                # Main application
-├── config.yaml                   # Configuration
-├── requirements.txt              # Dependencies
-└── README.md                     # Documentation
+│       └── feature_extractor.py # ML feature extraction
+├── data/
+│   ├── raw/                     # Raw telemetry CSVs
+│   └── processed/               # Processed features
+├── models/                      # Saved trained models
+├── notebooks/
+│   └── eda.ipynb               # Data analysis notebook
+├── docs/
+│   └── DATA_COLLECTION_GUIDE.md # Training guide
+├── senthium_ai.py              # Main application
+├── train_model.py              # Model training script
+├── demo_data_collection.py     # Data collection demo
+├── test_senthium.py            # Unit tests
+├── test_integration.py         # Integration tests
+├── config.yaml                 # Configuration
+├── requirements.txt            # Dependencies
+└── README.md                   # Documentation
 ```
+
+## Data Collection & Training
+
+Senthium AI supports custom model training on your own data:
+
+### Collect Data
+
+```bash
+# Interactive data collection
+python demo_data_collection.py --mode interactive
+
+# Or use the DataLogger directly
+python -m senthium_ai.monitors.data_logger \
+    --session-id my_session \
+    --task download \
+    --duration 120
+```
+
+### Extract Features
+
+```bash
+python -m senthium_ai.utils.feature_extractor data/raw \
+    --output data/processed/features.npz \
+    --normalize
+```
+
+### Train Model
+
+```bash
+python train_model.py \
+    --data data/processed/features.npz \
+    --epochs 100 \
+    --output models/custom_model.pkl
+```
+
+For detailed instructions, see [Data Collection Guide](docs/DATA_COLLECTION_GUIDE.md).
 
 ## Contributing
 
