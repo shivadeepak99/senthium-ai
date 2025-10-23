@@ -6,7 +6,7 @@ Collects system metrics using psutil for rule evaluation
 import psutil
 import time
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -55,9 +55,9 @@ class SystemMonitor:
         self.poll_interval = poll_interval
         self.logger = logging.getLogger(__name__)
         
-        # Previous snapshots for rate calculation
-        self._last_disk_io: Optional[psutil._common.sdiskio] = None
-        self._last_net_io: Optional[psutil._common.snetio] = None
+        # Previous snapshots for rate calculation (using Any to avoid psutil._common references)
+        self._last_disk_io: Optional[Any] = None
+        self._last_net_io: Optional[Any] = None
         self._last_poll_time: Optional[float] = None
         
         self.logger.info(f"SystemMonitor initialized (poll_interval={poll_interval}s)")
@@ -87,10 +87,10 @@ class SystemMonitor:
         metrics = SystemMetrics(
             timestamp=datetime.now(),
             cpu_percent=self._get_cpu_percent(),
-            disk_read_mbps=self._calc_disk_read_mbps(current_disk, time_delta),
-            disk_write_mbps=self._calc_disk_write_mbps(current_disk, time_delta),
-            net_sent_mbps=self._calc_net_sent_mbps(current_net, time_delta),
-            net_recv_mbps=self._calc_net_recv_mbps(current_net, time_delta),
+            disk_read_mbps=self._calc_disk_read_mbps(current_disk, time_delta) if current_disk else 0.0,
+            disk_write_mbps=self._calc_disk_write_mbps(current_disk, time_delta) if current_disk else 0.0,
+            net_sent_mbps=self._calc_net_sent_mbps(current_net, time_delta) if current_net else 0.0,
+            net_recv_mbps=self._calc_net_recv_mbps(current_net, time_delta) if current_net else 0.0,
             processes=self._get_process_list(),
             idle_time_seconds=self._get_idle_time(),
         )
@@ -105,12 +105,12 @@ class SystemMonitor:
         except Exception:
             raise
     
-    def _calc_disk_read_mbps(self, current_io: psutil._common.sdiskio, time_delta: float) -> float:
+    def _calc_disk_read_mbps(self, current_io: Any, time_delta: float) -> float:
         """
         Calculate disk read rate in MB/s from snapshot
         
         Args:
-            current_io: Current disk IO snapshot
+            current_io: Current disk IO snapshot (psutil sdiskio object)
             time_delta: Time since last measurement
             
         Returns:
@@ -124,12 +124,12 @@ class SystemMonitor:
         mbps = (bytes_read / time_delta) / (1024 * 1024)
         return max(0.0, mbps)
     
-    def _calc_disk_write_mbps(self, current_io: psutil._common.sdiskio, time_delta: float) -> float:
+    def _calc_disk_write_mbps(self, current_io: Any, time_delta: float) -> float:
         """
         Calculate disk write rate in MB/s from snapshot
         
         Args:
-            current_io: Current disk IO snapshot
+            current_io: Current disk IO snapshot (psutil sdiskio object)
             time_delta: Time since last measurement
             
         Returns:
@@ -146,12 +146,12 @@ class SystemMonitor:
         self._last_disk_io = current_io
         return max(0.0, mbps)
     
-    def _calc_net_sent_mbps(self, current_io: psutil._common.snetio, time_delta: float) -> float:
+    def _calc_net_sent_mbps(self, current_io: Any, time_delta: float) -> float:
         """
         Calculate network upload rate in MB/s from snapshot
         
         Args:
-            current_io: Current network IO snapshot
+            current_io: Current network IO snapshot (psutil snetio object)
             time_delta: Time since last measurement
             
         Returns:
@@ -165,12 +165,12 @@ class SystemMonitor:
         mbps = (bytes_sent / time_delta) / (1024 * 1024)
         return max(0.0, mbps)
     
-    def _calc_net_recv_mbps(self, current_io: psutil._common.snetio, time_delta: float) -> float:
+    def _calc_net_recv_mbps(self, current_io: Any, time_delta: float) -> float:
         """
         Calculate network download rate in MB/s from snapshot
         
         Args:
-            current_io: Current network IO snapshot
+            current_io: Current network IO snapshot (psutil snetio object)
             time_delta: Time since last measurement
             
         Returns:

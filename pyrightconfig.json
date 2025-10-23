@@ -1,0 +1,33 @@
+{
+    "include": [
+        "src",
+        "tests"
+    ],
+    "exclude": [
+        "**/node_modules",
+        "**/__pycache__",
+        "venv",
+        ".venv",
+        "build",
+        "dist",
+        "htmlcov"
+    ],
+    "extraPaths": [
+        "src"
+    ],
+    "pythonVersion": "3.9",
+    "pythonPlatform": "All",
+    "typeCheckingMode": "basic",
+    "reportMissingImports": true,
+    "reportMissingTypeStubs": false,
+    "reportUnusedImport": false,
+    "reportUnusedClass": false,
+    "reportUnusedFunction": false,
+    "reportUnusedVariable": false,
+    "reportDuplicateImport": true,
+    "reportAttributeAccessIssue": false,
+    "reportMissingModuleSource": "warning",
+    "venvPath": ".",
+    "venv": "venv",
+    "stubPath": "."
+}

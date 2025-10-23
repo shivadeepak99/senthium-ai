@@ -3,7 +3,12 @@ Senthium - Intelligent Lock & Sleep Manager
 Setup configuration for package installation
 """
 
-from setuptools import setup, find_packages
+try:
+    from setuptools import setup, find_packages
+except ImportError:
+    raise ImportError(
+        "setuptools is required. Install it with: pip install setuptools"
+    )
 import os
 
 # Read long description from README
