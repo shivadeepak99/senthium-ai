@@ -1,6 +1,7 @@
 # Core Dependencies
 psutil>=5.9.0          # System and process utilities
 pyyaml>=6.0           # YAML parser for config files
+jsonschema>=4.19.0    # JSON Schema validation for configs
 
 # Testing
 pytest>=7.4.0         # Testing framework

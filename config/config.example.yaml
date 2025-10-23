@@ -1,0 +1,108 @@
+# Senthium Configuration File
+# Version: 0.2
+# This file defines rules for when the system should stay awake
+
+senthium:
+  version: "0.2"
+  
+  # ==========================================
+  # Global Settings
+  # ==========================================
+  
+  # Maximum time to stay awake (seconds)
+  # Security failsafe: forces sleep after this duration
+  max_awake_duration: 14400  # 4 hours
+  
+  # How often to check system state (seconds)
+  poll_interval: 5
+  
+  # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  log_level: "INFO"
+  
+  # ==========================================
+  # Rules
+  # ==========================================
+  # Rules are evaluated with OR logic:
+  # If ANY rule matches, system stays awake
+  
+  rules:
+    # Example 1: Keep awake during active downloads
+    - name: "Active Downloads"
+      enabled: true
+      type: "combined"
+      description: "Browser downloading at significant rate"
+      conditions:
+        - type: "process"
+          processes:
+            - "chrome.exe"
+            - "firefox.exe"
+            - "msedge.exe"
+        - type: "network"
+          download_mbps: 0.5
+          duration: 10  # Must sustain for 10 seconds
+    
+    # Example 2: Heavy compilation or build tasks
+    - name: "Build Tasks"
+      enabled: true
+      type: "process"
+      description: "Compilation, build, or containerization"
+      processes:
+        - "make"
+        - "gcc"
+        - "g++"
+        - "clang"
+        - "docker"
+        - "npm"
+        - "node"
+        - "yarn"
+        - "gradle"
+        - "maven"
+    
+    # Example 3: High sustained CPU activity
+    - name: "High CPU Usage"
+      enabled: true
+      type: "cpu"
+      description: "Sustained high CPU usage"
+      threshold: 70  # percentage
+      duration: 30   # Must sustain for 30 seconds
+    
+    # Example 4: Disk-intensive operations
+    - name: "Disk Operations"
+      enabled: false  # Disabled by default
+      type: "disk"
+      description: "Heavy disk I/O"
+      read_mbps: 50
+      write_mbps: 50
+      duration: 20
+    
+    # Example 5: Large file transfers
+    - name: "File Transfers"
+      enabled: true
+      type: "network"
+      description: "Significant network activity"
+      download_mbps: 5.0
+      upload_mbps: 2.0
+      duration: 15
+    
+    # Example 6: Specific applications
+    - name: "Video Rendering"
+      enabled: true
+      type: "process"
+      description: "Video editing and rendering software"
+      processes:
+        - "ffmpeg"
+        - "handbrake"
+        - "premiere"
+        - "davinci"
+    
+    # Example 7: Database operations
+    - name: "Database Activity"
+      enabled: false
+      type: "process"
+      description: "Database servers and backup tools"
+      processes:
+        - "postgres"
+        - "mysql"
+        - "mongodb"
+        - "pg_dump"
+        - "mysqldump"
