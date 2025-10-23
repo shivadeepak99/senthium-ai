@@ -1,0 +1,22 @@
+# Core Dependencies
+psutil>=5.9.0          # System and process utilities
+pyyaml>=6.0           # YAML parser for config files
+
+# Testing
+pytest>=7.4.0         # Testing framework
+pytest-cov>=4.1.0     # Coverage plugin for pytest
+pytest-mock>=3.11.0   # Mocking plugin for pytest
+
+# Development Tools
+black>=23.7.0         # Code formatter
+flake8>=6.1.0         # Linter
+mypy>=1.5.0           # Type checker
+
+# Logging
+colorlog>=6.7.0       # Colored logging output
+
+# Linux-specific (will be conditional later)
+# dbus-python>=1.3.2  # For systemd integration (Linux only)
+
+# Windows-specific (will be conditional later)
+# pywin32>=306        # For Windows service & API (Windows only)
