@@ -217,26 +217,26 @@ def cmd_reload() -> int:
     ipc_client = IPCClient(timeout=5.0)
     
     try:
-        print("🔄 Reloading daemon configuration...")
+        print("[*] Reloading daemon configuration...")
         response = ipc_client.send_command("RELOAD_CONFIG")
         
         if not response.success:
-            print(f"❌ Failed to reload: {response.message}")
+            print(f"[ERROR] Failed to reload: {response.message}")
             return 1
             
-        print("✅ Configuration reloaded successfully")
+        print("[OK] Configuration reloaded successfully")
         
         # Show how many rules loaded
         rules_count = response.data.get("rules_count", 0)
-        print(f"   Loaded {rules_count} rule(s)")
+        print(f"     Loaded {rules_count} rule(s)")
         
         return 0
         
     except ConnectionError as e:
-        print(f"❌ {e}")
+        print(f"[ERROR] {e}")
         return 1
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"[ERROR] {e}")
         return 1
 
 
@@ -337,12 +337,10 @@ def main() -> int:
             return 0
             
     except KeyboardInterrupt:
-        print("\n⚠️  Interrupted by user")
+        print("\n[WARN] Interrupted by user")
         return 130
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
         return 1
-
-
 if __name__ == "__main__":
     sys.exit(main())

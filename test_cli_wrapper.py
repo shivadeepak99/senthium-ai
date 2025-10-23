@@ -65,7 +65,7 @@ def test_cli_wrapper():
                 sys.executable,
                 "src/cli/wrapper.py",
                 "--stay-awake",
-                "python -c \"import time; print('🚀 Command executing with stay-awake lock!'); time.sleep(2); print('✅ Command completed!')\"",
+                "python -c \"import time; print('[TEST] Command executing with stay-awake lock!'); time.sleep(2); print('[TEST] Command completed!')\"",
                 "--log-level", "INFO"
             ],
             stdout=subprocess.PIPE,
