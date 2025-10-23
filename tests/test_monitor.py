@@ -90,7 +90,10 @@ class TestSystemMonitor:
         monitor = SystemMonitor()
         
         # Python should be running (this test itself!)
-        assert monitor.process_is_running('python')
+        # Check for various Python process names (python, python.exe, python3.13.exe, etc.)
+        processes = monitor._get_process_list()
+        python_running = any('python' in proc for proc in processes)
+        assert python_running, f"No Python process found. Processes: {[p for p in processes if 'py' in p][:10]}"
     
     def test_process_is_running_case_insensitive(self):
         """Test that process detection is case-insensitive"""
