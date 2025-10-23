@@ -1,0 +1,21 @@
+senthium:
+  version: "0.3"
+  
+  # Failsafe: Max time to stay awake (seconds)
+  max_awake_duration: 120  # 2 minutes for testing
+  
+  # Polling interval (seconds)
+  poll_interval: 2  # Fast polling for testing
+  
+  # Logging level
+  log_level: "INFO"
+  
+  # Simple test rule: if python.exe is running, stay awake!
+  rules:
+    - name: "Python Running Test"
+      enabled: true
+      type: "process"
+      description: "Any Python process running"
+      processes:
+        - "python.exe"
+        - "python"

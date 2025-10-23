@@ -132,7 +132,7 @@ class WindowsPowerManager(PowerManagerBase):
         Returns:
             Idle time in seconds
         """
-        if not self.user32:
+        if not self.user32 or not self.kernel32:
             return 0.0
         
         try:
@@ -149,7 +149,7 @@ class WindowsPowerManager(PowerManagerBase):
             lii.cbSize = ctypes.sizeof(LASTINPUTINFO)
             
             if self.user32.GetLastInputInfo(ctypes.byref(lii)):
-                millis = self.kernel32.GetTickCount() - lii.dwTime
+                millis = self.kernel32.GetTickCount() - lii.dwTime  # type: ignore
                 return millis / 1000.0
             
             return 0.0
@@ -176,7 +176,7 @@ class LinuxPowerManager(PowerManagerBase):
     def _detect_method(self) -> str:
         """Detect best available power management method"""
         try:
-            import dbus
+            import dbus  # type: ignore  # Linux-only dependency
             bus = dbus.SystemBus()
             bus.get_object('org.freedesktop.login1', '/org/freedesktop/login1')
             return 'systemd'
@@ -228,7 +228,7 @@ class LinuxPowerManager(PowerManagerBase):
     def _inhibit_systemd(self) -> bool:
         """Use systemd-logind Inhibit to prevent sleep"""
         try:
-            import dbus
+            import dbus  # type: ignore  # Linux-only dependency
             bus = dbus.SystemBus()
             login_manager = bus.get_object(
                 'org.freedesktop.login1',
