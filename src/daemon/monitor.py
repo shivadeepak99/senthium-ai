@@ -79,14 +79,18 @@ class SystemMonitor:
         
         self._last_poll_time = current_time
         
-        # Gather all metrics
+        # Take single snapshots for disk and net to keep deltas consistent
+        current_disk = psutil.disk_io_counters()
+        current_net = psutil.net_io_counters()
+        
+        # Gather all metrics using consistent snapshots
         metrics = SystemMetrics(
             timestamp=datetime.now(),
             cpu_percent=self._get_cpu_percent(),
-            disk_read_mbps=self._get_disk_read_rate(time_delta),
-            disk_write_mbps=self._get_disk_write_rate(time_delta),
-            net_sent_mbps=self._get_net_sent_rate(time_delta),
-            net_recv_mbps=self._get_net_recv_rate(time_delta),
+            disk_read_mbps=self._calc_disk_read_mbps(current_disk, time_delta),
+            disk_write_mbps=self._calc_disk_write_mbps(current_disk, time_delta),
+            net_sent_mbps=self._calc_net_sent_mbps(current_net, time_delta),
+            net_recv_mbps=self._calc_net_recv_mbps(current_net, time_delta),
             processes=self._get_process_list(),
             idle_time_seconds=self._get_idle_time(),
         )
@@ -95,95 +99,92 @@ class SystemMonitor:
         return metrics
     
     def _get_cpu_percent(self) -> float:
-        """Get system-wide CPU usage percentage"""
-        return psutil.cpu_percent(interval=0.1)
+        """Get system-wide CPU usage percentage (non-blocking)"""
+        try:
+            return psutil.cpu_percent(interval=0.0)
+        except Exception:
+            raise
     
-    def _get_disk_read_rate(self, time_delta: float) -> float:
+    def _calc_disk_read_mbps(self, current_io: psutil._common.sdiskio, time_delta: float) -> float:
         """
-        Calculate disk read rate in MB/s
+        Calculate disk read rate in MB/s from snapshot
         
         Args:
+            current_io: Current disk IO snapshot
             time_delta: Time since last measurement
             
         Returns:
             Read rate in MB/s
         """
-        current_io = psutil.disk_io_counters()
-        
         if self._last_disk_io is None:
-            self._last_disk_io = current_io
+            # No baseline yet - will be set after write calc
             return 0.0
         
         bytes_read = current_io.read_bytes - self._last_disk_io.read_bytes
-        self._last_disk_io = current_io
-        
-        # Convert to MB/s
         mbps = (bytes_read / time_delta) / (1024 * 1024)
         return max(0.0, mbps)
     
-    def _get_disk_write_rate(self, time_delta: float) -> float:
+    def _calc_disk_write_mbps(self, current_io: psutil._common.sdiskio, time_delta: float) -> float:
         """
-        Calculate disk write rate in MB/s
+        Calculate disk write rate in MB/s from snapshot
         
         Args:
+            current_io: Current disk IO snapshot
             time_delta: Time since last measurement
             
         Returns:
             Write rate in MB/s
         """
-        current_io = psutil.disk_io_counters()
-        
         if self._last_disk_io is None:
+            self._last_disk_io = current_io
             return 0.0
         
         bytes_written = current_io.write_bytes - self._last_disk_io.write_bytes
-        
-        # Convert to MB/s
         mbps = (bytes_written / time_delta) / (1024 * 1024)
+        
+        # Update baseline AFTER computing both read & write
+        self._last_disk_io = current_io
         return max(0.0, mbps)
     
-    def _get_net_sent_rate(self, time_delta: float) -> float:
+    def _calc_net_sent_mbps(self, current_io: psutil._common.snetio, time_delta: float) -> float:
         """
-        Calculate network upload rate in MB/s
+        Calculate network upload rate in MB/s from snapshot
         
         Args:
+            current_io: Current network IO snapshot
             time_delta: Time since last measurement
             
         Returns:
             Upload rate in MB/s
         """
-        current_io = psutil.net_io_counters()
-        
         if self._last_net_io is None:
-            self._last_net_io = current_io
+            # No baseline yet - will be set after recv calc
             return 0.0
         
         bytes_sent = current_io.bytes_sent - self._last_net_io.bytes_sent
-        self._last_net_io = current_io
-        
-        # Convert to MB/s
         mbps = (bytes_sent / time_delta) / (1024 * 1024)
         return max(0.0, mbps)
     
-    def _get_net_recv_rate(self, time_delta: float) -> float:
+    def _calc_net_recv_mbps(self, current_io: psutil._common.snetio, time_delta: float) -> float:
         """
-        Calculate network download rate in MB/s
+        Calculate network download rate in MB/s from snapshot
         
         Args:
+            current_io: Current network IO snapshot
             time_delta: Time since last measurement
             
         Returns:
             Download rate in MB/s
         """
-        current_io = psutil.net_io_counters()
-        
         if self._last_net_io is None:
+            self._last_net_io = current_io
             return 0.0
         
         bytes_recv = current_io.bytes_recv - self._last_net_io.bytes_recv
-        
-        # Convert to MB/s
         mbps = (bytes_recv / time_delta) / (1024 * 1024)
+        
+        # Update baseline AFTER computing both sent & recv
+        self._last_net_io = current_io
         return max(0.0, mbps)
     
     def _get_process_list(self) -> List[str]:
@@ -212,9 +213,9 @@ class SystemMonitor:
             Idle time in seconds (0.0 for now, will implement per-platform)
         """
         # TODO: Implement platform-specific idle time detection
-        # - Windows: GetLastInputInfo
-        # - Linux: X11 or Wayland APIs
-        # - macOS: CGEventSource
+        # - Windows: GetLastInputInfo via ctypes
+        # - Linux: xprintidle or X11 (python-xlib) or Wayland
+        # - macOS: IOKit/Quartz via pyobjc
         
         # For now, return 0 (will implement in later versions)
         return 0.0
