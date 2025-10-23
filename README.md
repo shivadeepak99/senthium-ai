@@ -1,4 +1,5 @@
 # 🌸 Senthium - Intelligent Lock & Sleep Manager
+💖 [Why I Built Senthium](why.md)
 
 **Version**: 0.1.0 (Alpha)  
 **Status**: 🚧 In Development
