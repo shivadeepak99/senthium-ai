@@ -455,6 +455,7 @@ class SenthiumDaemon:
 # Example usage / testing
 if __name__ == '__main__':
     from utils.logger import setup_logger
+    from utils.pid import PIDFile
     import argparse
     
     # Parse command-line arguments
@@ -478,11 +479,20 @@ if __name__ == '__main__':
     # Setup logging
     logger = setup_logger('senthium', level=args.log_level)
     
+    # Use PID file to prevent multiple instances
+    pid_file = PIDFile()
+    
     try:
-        # Create and run daemon
-        daemon = SenthiumDaemon(config_path=args.config)
-        daemon.run()
+        # Create PID file (will raise if already running)
+        with pid_file:
+            # Create and run daemon
+            daemon = SenthiumDaemon(config_path=args.config)
+            daemon.run()
         
+    except RuntimeError as e:
+        # Already running or PID file issue
+        logger.error(str(e))
+        sys.exit(1)
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
         sys.exit(0)
