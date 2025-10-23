@@ -21,6 +21,7 @@ from daemon.power_manager import create_power_manager, PowerManagerBase
 from rules.engine import RulesEngine
 from rules.schema import ConfigValidationError
 from utils.failsafe import FailsafeTimer
+from ipc import IPCServer, IPCMessage, IPCResponse
 
 
 class DaemonState(Enum):
@@ -51,6 +52,7 @@ class SenthiumDaemon:
         self.state = DaemonState.IDLE
         self._running = False
         self._shutdown_requested = False
+        self._wrapper_lock_active = False  # Track CLI wrapper lock
         
         # Initialize components
         self.logger.info("=" * 70)
@@ -74,6 +76,15 @@ class SenthiumDaemon:
             
             # Initialize failsafe timer
             self.failsafe = FailsafeTimer(max_duration_seconds=max_awake_duration)
+            
+            # Initialize IPC server for CLI communication
+            self.ipc_server = IPCServer()
+            try:
+                self.ipc_server.start()
+                self.logger.info("✅ IPC server started (CLI communication enabled)")
+            except Exception as e:
+                self.logger.warning(f"⚠️  Failed to start IPC server: {e} (CLI commands will not work)")
+                self.ipc_server = None
             
             # Statistics
             self.stats = {
@@ -122,6 +133,141 @@ class SenthiumDaemon:
             self.state = new_state
             self.logger.info(f"🔄 State transition: {old_state.value} → {new_state.value}")
     
+    def _handle_ipc_message(self, message: IPCMessage) -> IPCResponse:
+        """
+        Handle incoming IPC message from CLI.
+        
+        Args:
+            message: Incoming IPC message
+            
+        Returns:
+            Response to send back to CLI
+        """
+        command = message.command
+        self.logger.debug(f"📨 IPC command received: {command}")
+        
+        try:
+            if command == "ACQUIRE_LOCK":
+                # CLI wrapper requesting stay-awake lock
+                self._wrapper_lock_active = True
+                self.logger.info("🔒 Wrapper lock acquired (explicit mode)")
+                return IPCResponse(
+                    success=True,
+                    message="Wrapper lock acquired - stay-awake guaranteed",
+                    data={"lock_active": True}
+                )
+            
+            elif command == "RELEASE_LOCK":
+                # CLI wrapper releasing stay-awake lock
+                self._wrapper_lock_active = False
+                self.logger.info("🔓 Wrapper lock released")
+                return IPCResponse(
+                    success=True,
+                    message="Wrapper lock released",
+                    data={"lock_active": False}
+                )
+            
+            elif command == "STATUS":
+                # CLI requesting daemon status
+                uptime = (datetime.now() - self.stats['started_at']).total_seconds()
+                awake = self.power_manager.is_awake_asserted
+                
+                status_data = {
+                    "state": self.state.value,
+                    "uptime_seconds": uptime,
+                    "poll_count": self.stats['poll_count'],
+                    "rules_matched": self.stats['rules_matched'],
+                    "active_sessions": self.stats['active_sessions'],
+                    "failsafe_triggers": self.stats['failsafe_triggers'],
+                    "awake": awake,
+                    "wrapper_lock": self._wrapper_lock_active,
+                }
+                
+                if awake:
+                    status_data["awake_duration_seconds"] = self.failsafe.get_elapsed_seconds()
+                    status_data["max_awake_duration"] = self.config.get('max_awake_duration', 14400)
+                
+                return IPCResponse(
+                    success=True,
+                    message="Status retrieved successfully",
+                    data=status_data
+                )
+            
+            elif command == "INFO":
+                # CLI requesting detailed daemon information
+                rules_info = []
+                for rule in self.config.get('rules', []):
+                    rules_info.append({
+                        "name": rule.get('name', 'Unnamed'),
+                        "type": rule.get('type', 'unknown'),
+                    })
+                
+                info_data = {
+                    "config_path": self.config_path,
+                    "poll_interval": self.poll_interval,
+                    "max_awake_duration": self.config.get('max_awake_duration', 14400),
+                    "rules": rules_info,
+                }
+                
+                return IPCResponse(
+                    success=True,
+                    message="Info retrieved successfully",
+                    data=info_data
+                )
+            
+            elif command == "RELOAD_CONFIG":
+                # CLI requesting config reload
+                try:
+                    old_rules_count = len(self.config.get('rules', []))
+                    self.rules_engine = RulesEngine(Path(self.config_path))
+                    self.config = self.rules_engine.config['senthium']
+                    new_rules_count = len(self.config.get('rules', []))
+                    
+                    self.logger.info(f"🔄 Configuration reloaded ({new_rules_count} rules)")
+                    
+                    return IPCResponse(
+                        success=True,
+                        message=f"Configuration reloaded successfully",
+                        data={
+                            "rules_count": new_rules_count,
+                            "old_rules_count": old_rules_count
+                        }
+                    )
+                    
+                except Exception as e:
+                    self.logger.error(f"Failed to reload config: {e}")
+                    return IPCResponse(
+                        success=False,
+                        message=f"Failed to reload config: {e}"
+                    )
+            
+            else:
+                return IPCResponse(
+                    success=False,
+                    message=f"Unknown command: {command}"
+                )
+                
+        except Exception as e:
+            self.logger.error(f"Error handling IPC command '{command}': {e}")
+            return IPCResponse(
+                success=False,
+                message=f"Internal error: {e}"
+            )
+    
+    def _poll_ipc(self):
+        """Poll for incoming IPC messages (non-blocking)"""
+        if not self.ipc_server:
+            return
+        
+        try:
+            result = self.ipc_server.poll()
+            if result:
+                message, client_context = result
+                response = self._handle_ipc_message(message)
+                self.ipc_server.send_response(response, client_context)
+        except Exception as e:
+            self.logger.error(f"Error in IPC polling: {e}")
+    
     def _handle_monitoring_state(self, metrics):
         """
         Handle MONITORING state logic
@@ -132,7 +278,12 @@ class SenthiumDaemon:
         Returns:
             True if should transition to ACTIVE, False otherwise
         """
-        # Evaluate rules (returns bool)
+        # Check wrapper lock first (explicit mode takes priority)
+        if self._wrapper_lock_active:
+            self.logger.debug("💼 Wrapper lock active - staying awake (explicit mode)")
+            return True
+        
+        # Evaluate rules (implicit mode)
         should_stay_awake = self.rules_engine.evaluate(metrics)
         
         if should_stay_awake:
@@ -156,9 +307,23 @@ class SenthiumDaemon:
         if self.failsafe.check_exceeded():
             self.logger.critical("🚨 FAILSAFE TRIGGERED - Forcing release of stay-awake")
             self.stats['failsafe_triggers'] += 1
+            # Force release wrapper lock on failsafe
+            self._wrapper_lock_active = False
             return False
         
-        # Evaluate rules (returns bool)
+        # Check wrapper lock (explicit mode)
+        if self._wrapper_lock_active:
+            # Wrapper lock active - stay awake regardless of rules
+            if self.stats['poll_count'] % 12 == 0:  # Log every ~1 minute
+                elapsed = self.failsafe.get_elapsed_seconds()
+                remaining = self.failsafe.get_remaining_seconds()
+                self.logger.debug(
+                    f"💼 Wrapper lock active - Awake for {self.failsafe._format_duration(elapsed)}, "
+                    f"{self.failsafe._format_duration(remaining)} remaining"
+                )
+            return True
+        
+        # Evaluate rules (implicit mode)
         should_stay_awake = self.rules_engine.evaluate(metrics)
         
         if should_stay_awake:
@@ -197,6 +362,9 @@ class SenthiumDaemon:
         try:
             while self._running and not self._shutdown_requested:
                 self.stats['poll_count'] += 1
+                
+                # Poll IPC for CLI commands (non-blocking)
+                self._poll_ipc()
                 
                 # Gather system metrics
                 try:
@@ -251,6 +419,11 @@ class SenthiumDaemon:
         self.logger.info("=" * 70)
         
         self._transition_state(DaemonState.SHUTDOWN)
+        
+        # Stop IPC server
+        if self.ipc_server:
+            self.logger.info("Stopping IPC server...")
+            self.ipc_server.stop()
         
         # Release any active stay-awake assertion
         if self.power_manager.is_awake_asserted:
