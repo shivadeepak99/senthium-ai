@@ -283,15 +283,16 @@ class NamedPipeServer:
     def start(self) -> None:
         """Start listening on named pipe"""
         # Create named pipe with non-blocking mode
+        # type: ignore on entire call due to pywin32 type stubs issues
         self.pipe_handle = win32pipe.CreateNamedPipe(
             self.pipe_name,
-            win32pipe.PIPE_ACCESS_DUPLEX | win32file.FILE_FLAG_OVERLAPPED,
-            win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_READMODE_MESSAGE | win32pipe.PIPE_WAIT,
-            win32pipe.PIPE_UNLIMITED_INSTANCES,
+            win32pipe.PIPE_ACCESS_DUPLEX | win32file.FILE_FLAG_OVERLAPPED,  # type: ignore
+            win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_READMODE_MESSAGE | win32pipe.PIPE_WAIT,  # type: ignore
+            win32pipe.PIPE_UNLIMITED_INSTANCES,  # type: ignore
             4096,  # Out buffer size
             4096,  # In buffer size
             0,     # Default timeout
-            None   # Security attributes (default)
+            None   # Security attributes (default)  # type: ignore
         )
         
         logger.info(f"IPC server listening on {self.pipe_name}")
@@ -429,26 +430,26 @@ class NamedPipeClient:
             )
             
             try:
-                # Set message mode
+                # Set message mode (pywin32 type stubs are incomplete)
                 win32pipe.SetNamedPipeHandleState(
-                    pipe_handle,
-                    win32pipe.PIPE_READMODE_MESSAGE,
+                    pipe_handle,  # type: ignore
+                    win32pipe.PIPE_READMODE_MESSAGE,  # type: ignore
                     None,
                     None
                 )
                 
                 # Send message
                 message_str = message.to_json()
-                win32file.WriteFile(pipe_handle, message_str.encode("utf-8"))
+                win32file.WriteFile(pipe_handle, message_str.encode("utf-8"))  # type: ignore
                 
                 # Receive response
-                result, data = win32file.ReadFile(pipe_handle, 4096)
+                result, data = win32file.ReadFile(pipe_handle, 4096)  # type: ignore
                 response_str = data.decode("utf-8")
                 
                 return IPCResponse.from_json(response_str)
                 
             finally:
-                win32file.CloseHandle(pipe_handle)
+                win32file.CloseHandle(pipe_handle)  # type: ignore
                 
         except pywintypes.error as e:
             if e.args[0] == 2:  # ERROR_FILE_NOT_FOUND
