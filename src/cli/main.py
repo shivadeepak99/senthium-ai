@@ -16,6 +16,143 @@ logging.basicConfig(
 )
 
 
+def handle_service_command(args) -> int:
+    """Handle service-related commands"""
+    action = getattr(args, 'service_action', None)
+    
+    if not action:
+        print("[ERROR] No service action specified")
+        print("        Use: senthium service {install|uninstall|start|stop|restart|status}")
+        return 1
+    
+    # Platform detection
+    if sys.platform.startswith('win'):
+        # Windows Service
+        try:
+            from service.windows_service import install_service, uninstall_service
+            import win32serviceutil  # type: ignore
+            
+            if action == 'install':
+                success = install_service()
+                return 0 if success else 1
+            
+            elif action == 'uninstall':
+                success = uninstall_service()
+                return 0 if success else 1
+            
+            elif action == 'start':
+                print("[*] Starting Senthium service...")
+                win32serviceutil.StartService("Senthium")
+                print("[OK] Service started")
+                return 0
+            
+            elif action == 'stop':
+                print("[*] Stopping Senthium service...")
+                win32serviceutil.StopService("Senthium")
+                print("[OK] Service stopped")
+                return 0
+            
+            elif action == 'restart':
+                print("[*] Restarting Senthium service...")
+                win32serviceutil.RestartService("Senthium")
+                print("[OK] Service restarted")
+                return 0
+            
+            elif action == 'status':
+                try:
+                    status = win32serviceutil.QueryServiceStatus("Senthium")
+                    state_map = {
+                        1: "STOPPED",
+                        2: "START_PENDING",
+                        3: "STOP_PENDING",
+                        4: "RUNNING",
+                        5: "CONTINUE_PENDING",
+                        6: "PAUSE_PENDING",
+                        7: "PAUSED"
+                    }
+                    state = state_map.get(status[1], "UNKNOWN")
+                    print(f"Service Status: {state}")
+                    return 0
+                except Exception as e:
+                    print(f"[ERROR] Could not query service: {e}")
+                    print("        Service may not be installed")
+                    return 1
+            
+            else:
+                print(f"[ERROR] Unknown service action: {action}")
+                return 1
+            
+        except ImportError:
+            print("[ERROR] pywin32 is required for Windows Service management")
+            print("        Install with: pip install pywin32")
+            return 1
+        except Exception as e:
+            print(f"[ERROR] Service operation failed: {e}")
+            return 1
+    
+    elif sys.platform.startswith('linux'):
+        # Linux systemd
+        try:
+            from service.systemd_generator import (
+                generate_systemd_service,
+                install_systemd_service,
+                uninstall_systemd_service
+            )
+            import subprocess
+            
+            if action == 'install':
+                print("[*] Installing Senthium as systemd service...")
+                service_content = generate_systemd_service(
+                    user=getattr(args, 'user', None)
+                )
+                success = install_systemd_service(service_content, enable=True)
+                return 0 if success else 1
+            
+            elif action == 'uninstall':
+                success = uninstall_systemd_service()
+                return 0 if success else 1
+            
+            elif action == 'start':
+                print("[*] Starting Senthium service...")
+                subprocess.run(['sudo', 'systemctl', 'start', 'senthium'], check=True)
+                print("[OK] Service started")
+                return 0
+            
+            elif action == 'stop':
+                print("[*] Stopping Senthium service...")
+                subprocess.run(['sudo', 'systemctl', 'stop', 'senthium'], check=True)
+                print("[OK] Service stopped")
+                return 0
+            
+            elif action == 'restart':
+                print("[*] Restarting Senthium service...")
+                subprocess.run(['sudo', 'systemctl', 'restart', 'senthium'], check=True)
+                print("[OK] Service restarted")
+                return 0
+            
+            elif action == 'status':
+                subprocess.run(['systemctl', 'status', 'senthium'])
+                return 0
+            
+            else:
+                print(f"[ERROR] Unknown service action: {action}")
+                return 1
+                
+        except Exception as e:
+            print(f"[ERROR] Service operation failed: {e}")
+            return 1
+    
+    elif sys.platform == 'darwin':
+        # macOS launchd
+        print("[*] macOS launchd service management")
+        print("    (Implementation coming soon)")
+        return 1
+    
+    else:
+        print(f"[ERROR] Unsupported platform: {sys.platform}")
+        return 1
+
+
 def main() -> int:
     """Main entry point for senthium command"""
     parser = argparse.ArgumentParser(
@@ -87,6 +224,32 @@ def main() -> int:
         help='Show detailed status'
     )
     
+    # Service command (Windows Service / systemd / launchd)
+    service_parser = subparsers.add_parser('service', help='Manage system service (Windows/Linux/macOS)')
+    service_subparsers = service_parser.add_subparsers(dest='service_action', help='Service actions')
+    
+    # Service install
+    service_install = service_subparsers.add_parser('install', help='Install as system service')
+    service_install.add_argument(
+        '--user',
+        help='User to run service as (Linux/macOS only)'
+    )
+    
+    # Service uninstall
+    service_subparsers.add_parser('uninstall', help='Uninstall system service')
+    
+    # Service start
+    service_subparsers.add_parser('start', help='Start system service')
+    
+    # Service stop
+    service_subparsers.add_parser('stop', help='Stop system service')
+    
+    # Service restart
+    service_subparsers.add_parser('restart', help='Restart system service')
+    
+    # Service status
+    service_subparsers.add_parser('status', help='Check service status')
+    
     # Wrapper mode arguments (original functionality)
     parser.add_argument(
         '--stay-awake',
@@ -148,6 +311,10 @@ def main() -> int:
         elif args.command == 'status':
             from daemon.control import daemon_status
             return daemon_status(verbose=args.verbose)
+        
+        # Service commands
+        elif args.command == 'service':
+            return handle_service_command(args)
         
         # Wrapper mode (explicit stay-awake)
         elif args.stay_awake:
