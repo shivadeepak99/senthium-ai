@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Senthium Dashboard</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- htmx -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Custom Styles -->
+    <style>
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.4); }
+            50% { box-shadow: 0 0 30px rgba(34, 197, 94, 0.8); }
+        }
+        .status-active {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+        
+        /* Smooth transitions */
+        * {
+            transition: all 0.2s ease;
+        }
+        
+        /* Glassmorphism effect */
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Dark mode gradient background */
+        body {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        }
+    </style>
+</head>
+<body class="min-h-screen text-white" x-data="dashboardApp()">
+    
+    <!-- Header -->
+    <header class="border-b border-slate-700 bg-slate-900/50 backdrop-blur-lg">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="text-3xl">🛡️</div>
+                    <div>
+                        <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                            Senthium
+                        </h1>
+                        <p class="text-xs text-slate-400">Intelligent Lock & Sleep Manager</p>
+                    </div>
+                </div>
+                
+                <!-- Status Badge -->
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-2">
+                        <div 
+                            class="w-3 h-3 rounded-full"
+                            :class="{
+                                'bg-green-500 status-active': status.online && status.state === 'ACTIVE',
+                                'bg-blue-500': status.online && status.state === 'MONITORING',
+                                'bg-yellow-500': status.online && status.state === 'IDLE',
+                                'bg-red-500': !status.online
+                            }"
+                        ></div>
+                        <span class="text-sm font-medium" x-text="status.online ? status.state : 'OFFLINE'"></span>
+                    </div>
+                    
+                    <button 
+                        @click="refreshStatus()"
+                        class="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm"
+                        :disabled="refreshing"
+                    >
+                        <span x-show="!refreshing">🔄 Refresh</span>
+                        <span x-show="refreshing">⏳ Loading...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="container mx-auto px-6 py-8">
+        
+        <!-- Status Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            
+            <!-- Daemon Status Card -->
+            <div class="glass rounded-xl p-6 hover:scale-105 transform">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-slate-200">Daemon Status</h3>
+                    <div class="text-2xl">🤖</div>
+                </div>
+                <div class="space-y-2">
+                    <div class="text-3xl font-bold" x-text="status.state || 'OFFLINE'"></div>
+                    <div class="text-sm text-slate-400" x-show="status.uptime">
+                        Uptime: <span x-text="formatUptime(status.uptime)"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Active Rules Card -->
+            <div class="glass rounded-xl p-6 hover:scale-105 transform">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-slate-200">Active Rules</h3>
+                    <div class="text-2xl">📋</div>
+                </div>
+                <div class="space-y-2">
+                    <div class="text-3xl font-bold" x-text="status.matched_rules?.length || 0"></div>
+                    <div class="text-sm text-slate-400">rules matching</div>
+                </div>
+            </div>
+            
+            <!-- Sessions Today Card -->
+            <div class="glass rounded-xl p-6 hover:scale-105 transform">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-slate-200">Sessions Today</h3>
+                    <div class="text-2xl">📊</div>
+                </div>
+                <div class="space-y-2">
+                    <div class="text-3xl font-bold" x-text="activity.total_sessions || 0"></div>
+                    <div class="text-sm text-slate-400">stay-awake sessions</div>
+                </div>
+            </div>
+            
+            <!-- Total Duration Card -->
+            <div class="glass rounded-xl p-6 hover:scale-105 transform">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-slate-200">Total Duration</h3>
+                    <div class="text-2xl">⏱️</div>
+                </div>
+                <div class="space-y-2">
+                    <div class="text-3xl font-bold" x-text="formatDuration(activity.total_duration)"></div>
+                    <div class="text-sm text-slate-400">active time</div>
+                </div>
+            </div>
+            
+        </div>
+        
+        <!-- Two Column Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            
+            <!-- Matched Rules Panel -->
+            <div class="glass rounded-xl p-6">
+                <h3 class="text-xl font-bold mb-4 flex items-center">
+                    <span class="mr-2">🎯</span>
+                    Currently Matched Rules
+                </h3>
+                
+                <div x-show="status.matched_rules?.length > 0" class="space-y-2">
+                    <template x-for="rule in status.matched_rules" :key="rule">
+                        <div class="bg-green-500/20 border border-green-500/50 rounded-lg p-3">
+                            <div class="flex items-center justify-between">
+                                <span class="font-medium" x-text="rule"></span>
+                                <span class="text-xs text-green-400">✓ ACTIVE</span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                
+                <div x-show="!status.matched_rules || status.matched_rules.length === 0" class="text-center py-8 text-slate-400">
+                    <div class="text-4xl mb-2">😴</div>
+                    <p>No rules currently matching</p>
+                    <p class="text-sm">System can sleep normally</p>
+                </div>
+            </div>
+            
+            <!-- Activity Chart -->
+            <div class="glass rounded-xl p-6">
+                <h3 class="text-xl font-bold mb-4 flex items-center">
+                    <span class="mr-2">📈</span>
+                    Activity This Week
+                </h3>
+                <canvas id="activityChart"></canvas>
+            </div>
+            
+        </div>
+        
+        <!-- Rules Configuration Table -->
+        <div class="glass rounded-xl p-6">
+            <h3 class="text-xl font-bold mb-4 flex items-center">
+                <span class="mr-2">⚙️</span>
+                Configured Rules
+            </h3>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-slate-700">
+                            <th class="text-left py-3 px-4 text-slate-300">Status</th>
+                            <th class="text-left py-3 px-4 text-slate-300">Name</th>
+                            <th class="text-left py-3 px-4 text-slate-300">Type</th>
+                            <th class="text-left py-3 px-4 text-slate-300">Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="rule in rules" :key="rule.name">
+                            <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+                                <td class="py-3 px-4">
+                                    <span 
+                                        class="px-2 py-1 rounded text-xs font-medium"
+                                        :class="rule.enabled ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'"
+                                        x-text="rule.enabled ? '✓ Enabled' : '✗ Disabled'"
+                                    ></span>
+                                </td>
+                                <td class="py-3 px-4 font-medium" x-text="rule.name"></td>
+                                <td class="py-3 px-4">
+                                    <span 
+                                        class="px-2 py-1 rounded text-xs"
+                                        :class="{
+                                            'bg-blue-500/20 text-blue-400': rule.type === 'process',
+                                            'bg-purple-500/20 text-purple-400': rule.type === 'cpu',
+                                            'bg-yellow-500/20 text-yellow-400': rule.type === 'disk',
+                                            'bg-pink-500/20 text-pink-400': rule.type === 'network',
+                                            'bg-orange-500/20 text-orange-400': rule.type === 'combined',
+                                            'bg-teal-500/20 text-teal-400': rule.type === 'schedule'
+                                        }"
+                                        x-text="rule.type.toUpperCase()"
+                                    ></span>
+                                </td>
+                                <td class="py-3 px-4 text-slate-400 text-sm" x-text="rule.description"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+    </main>
+    
+    <!-- Footer -->
+    <footer class="border-t border-slate-700 mt-12 py-6">
+        <div class="container mx-auto px-6 text-center text-slate-400 text-sm">
+            <p>Senthium v0.5.0 - Intelligent Lock & Sleep Manager</p>
+            <p class="mt-1">Made with 💖 for your cute CEO</p>
+        </div>
+    </footer>
+    
+    <!-- Alpine.js App Logic -->
+    <script>
+        function dashboardApp() {
+            return {
+                status: {
+                    online: false,
+                    state: 'OFFLINE',
+                    uptime: 0,
+                    matched_rules: []
+                },
+                activity: {
+                    total_sessions: 0,
+                    total_duration: 0,
+                    by_day: []
+                },
+                rules: [],
+                refreshing: false,
+                socket: null,
+                activityChart: null,
+                
+                init() {
+                    // Initialize WebSocket
+                    this.initWebSocket();
+                    
+                    // Load initial data
+                    this.loadAllData();
+                    
+                    // Initialize chart
+                    this.$nextTick(() => {
+                        this.initChart();
+                    });
+                },
+                
+                initWebSocket() {
+                    this.socket = io();
+                    
+                    this.socket.on('connect', () => {
+                        console.log('WebSocket connected');
+                    });
+                    
+                    this.socket.on('status_update', (data) => {
+                        this.status = data;
+                    });
+                    
+                    this.socket.on('disconnect', () => {
+                        console.log('WebSocket disconnected');
+                        this.status.online = false;
+                    });
+                },
+                
+                async loadAllData() {
+                    await Promise.all([
+                        this.loadStatus(),
+                        this.loadActivity(),
+                        this.loadRules()
+                    ]);
+                },
+                
+                async loadStatus() {
+                    try {
+                        const response = await fetch('/api/status');
+                        const data = await response.json();
+                        this.status = data.status;
+                    } catch (error) {
+                        console.error('Failed to load status:', error);
+                    }
+                },
+                
+                async loadActivity() {
+                    try {
+                        const response = await fetch('/api/activity?days=7');
+                        const data = await response.json();
+                        this.activity = data;
+                        this.updateChart();
+                    } catch (error) {
+                        console.error('Failed to load activity:', error);
+                    }
+                },
+                
+                async loadRules() {
+                    try {
+                        const response = await fetch('/api/rules');
+                        this.rules = await response.json();
+                    } catch (error) {
+                        console.error('Failed to load rules:', error);
+                    }
+                },
+                
+                async refreshStatus() {
+                    this.refreshing = true;
+                    await this.loadAllData();
+                    this.refreshing = false;
+                },
+                
+                formatUptime(seconds) {
+                    if (!seconds) return '0s';
+                    const hours = Math.floor(seconds / 3600);
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    const secs = Math.floor(seconds % 60);
+                    
+                    if (hours > 0) return `${hours}h ${minutes}m`;
+                    if (minutes > 0) return `${minutes}m ${secs}s`;
+                    return `${secs}s`;
+                },
+                
+                formatDuration(seconds) {
+                    if (!seconds) return '0m';
+                    const hours = Math.floor(seconds / 3600);
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    
+                    if (hours > 0) return `${hours}h ${minutes}m`;
+                    return `${minutes}m`;
+                },
+                
+                initChart() {
+                    const ctx = document.getElementById('activityChart');
+                    if (!ctx) return;
+                    
+                    this.activityChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: 'Sessions',
+                                data: [],
+                                backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                                borderColor: 'rgba(59, 130, 246, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        color: 'rgb(148, 163, 184)'
+                                    },
+                                    grid: {
+                                        color: 'rgba(148, 163, 184, 0.1)'
+                                    }
+                                },
+                                x: {
+                                    ticks: {
+                                        color: 'rgb(148, 163, 184)'
+                                    },
+                                    grid: {
+                                        display: false
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    this.updateChart();
+                },
+                
+                updateChart() {
+                    if (!this.activityChart || !this.activity.by_day) return;
+                    
+                    const labels = this.activity.by_day.map(d => {
+                        const date = new Date(d.date);
+                        return date.toLocaleDateString('en-US', { weekday: 'short' });
+                    });
+                    
+                    const data = this.activity.by_day.map(d => d.sessions);
+                    
+                    this.activityChart.data.labels = labels;
+                    this.activityChart.data.datasets[0].data = data;
+                    this.activityChart.update();
+                }
+            }
+        }
+    </script>
+    
+</body>
+</html>
