@@ -2,15 +2,17 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.9+-green.svg)
+![Go](https://img.shields.io/badge/go-1.21+-00ADD8.svg)
+![Next.js](https://img.shields.io/badge/next.js-16-black.svg)
 ![Tests](https://img.shields.io/badge/tests-73%20passing-brightgreen.svg)
 ![Coverage](https://img.shields.io/badge/coverage-71%25-yellow.svg)
 ![License](https://img.shields.io/badge/license-MIT-purple.svg)
 
 **Keep your PC awake when it matters, let it sleep when it doesn't.**
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](docs/USER_GUIDE.md) • [Examples](config/examples/) • [Why Senthium?](docs/WHY.md)
+[Features](#-features) • [Quick Start](#-quick-start) • [Web Dashboard](#-web-dashboard) • [Documentation](docs/USER_GUIDE.md) • [Examples](config/examples/) • [Why Senthium?](docs/WHY.md)
 
 </div>
 
@@ -31,9 +33,29 @@ You start a long download, compilation, or backup... then need to step away. Now
 ## ✨ Features
 
 ### 🧠 **Intelligent Rules Engine**
-- **5 Rule Types**: Process, CPU, Disk, Network, Combined
+- **6 Rule Types**: Process, CPU, Disk, Network, Combined, **Schedule** *(NEW!)*
+- **Time-based Rules**: Stay awake during work hours, gaming schedules, etc.
 - **Real-time Monitoring**: Detects activity as it happens
 - **Automatic Stay-Awake**: No manual intervention needed
+
+### 🌐 **Modern Web Dashboard** *(NEW in v0.5!)*
+- **Real-time Monitoring**: Live daemon status with WebSocket updates
+- **Activity Analytics**: 7-day session history with visualizations
+- **System Metrics**: CPU, Disk, Network, Process monitoring
+- **Daemon Controls**: Start/Stop/Restart from web UI
+- **Beautiful UI**: Modern gradient design with glassmorphism
+- **Tech Stack**: Go backend + Next.js frontend + Tailwind CSS
+
+### 🎛️ **System Service Integration** *(NEW!)*
+- **Windows Service**: Auto-start on boot with Service Control Manager
+- **Linux systemd**: Security-hardened service with journal logging
+- **Service Commands**: `senthium service install/start/stop/status`
+
+### 📊 **Activity Logging** *(NEW!)*
+- **Session Tracking**: Logs every stay-awake session with metrics
+- **Analytics Engine**: Daily/weekly summaries, top rules, trigger breakdowns
+- **JSONL Storage**: Efficient append-only logs
+- **CLI Reporting**: `senthium activity --days 7`
 
 ### 🛡️ **Safe & Deterministic**
 - **Failsafe Timer**: Max awake duration prevents infinite lock
@@ -93,6 +115,40 @@ senthium --info
 
 # Stop daemon
 senthium stop
+```
+
+### Install as System Service *(NEW!)*
+
+```bash
+# Windows
+senthium service install
+senthium service start
+
+# Linux
+sudo senthium service install
+sudo systemctl start senthium
+```
+
+### View Activity Logs *(NEW!)*
+
+```bash
+# Last 7 days of activity
+senthium activity --days 7
+
+# Today's activity
+senthium activity --days 1
+```
+
+### Launch Web Dashboard *(NEW!)*
+
+```bash
+# Windows
+launch_dashboard.bat
+
+# Linux/macOS
+./launch_dashboard.sh
+
+# Then open http://localhost:3000
 ```
 
 ### Wrapper Mode (Explicit)
@@ -165,7 +221,60 @@ rules:
     duration: 60
 ```
 
+**Work Hours Schedule** *(NEW!)*
+```yaml
+rules:
+  - name: "Work Hours"
+    type: "schedule"
+    days: ["mon", "tue", "wed", "thu", "fri"]
+    start_time: "09:00"
+    end_time: "17:00"
+```
+
 👉 **See [config/examples/](config/examples/) for complete configs**
+
+---
+
+## 🌐 Web Dashboard
+
+Senthium now includes a gorgeous modern web dashboard for real-time monitoring!
+
+### Features
+- 📊 **Live Daemon Status**: Real-time updates via WebSocket
+- 📈 **System Metrics**: CPU, Disk I/O, Network, Processes
+- 📅 **Activity Analytics**: 7-day session history
+- 🎮 **Daemon Controls**: Start/Stop/Restart buttons
+- 🎨 **Modern UI**: Gradient design with glassmorphism effects
+
+### Launch Dashboard
+
+```bash
+# Windows
+launch_dashboard.bat
+
+# Linux/macOS
+./launch_dashboard.sh
+```
+
+Then open **http://localhost:3000** in your browser!
+
+### Architecture
+- **Backend**: Go server with WebSocket support (Port 8080)
+- **Frontend**: Next.js 16 + TypeScript + Tailwind CSS (Port 3000)
+- **Communication**: REST API + WebSocket for real-time updates
+
+### Manual Start
+
+```bash
+# Start backend (in terminal 1)
+cd server
+go run main.go
+
+# Start frontend (in terminal 2)
+cd dashboard
+npm install
+npm run dev
+```
 
 ---
 
