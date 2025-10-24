@@ -21,6 +21,7 @@ from daemon.power_manager import create_power_manager, PowerManagerBase
 from rules.engine import RulesEngine
 from rules.schema import ConfigValidationError
 from utils.failsafe import FailsafeTimer
+from utils.activity_log import ActivityLogger
 from ipc import IPCServer, IPCMessage, IPCResponse
 
 
@@ -79,6 +80,9 @@ class SenthiumDaemon:
             
             # Initialize IPC server for CLI communication
             self.ipc_server = IPCServer()
+            
+            # Initialize activity logger
+            self.activity_logger = ActivityLogger()
             try:
                 self.ipc_server.start()
                 self.logger.info("✅ IPC server started (CLI communication enabled)")
@@ -281,6 +285,19 @@ class SenthiumDaemon:
         # Check wrapper lock first (explicit mode takes priority)
         if self._wrapper_lock_active:
             self.logger.debug("💼 Wrapper lock active - staying awake (explicit mode)")
+            
+            # Start activity session if not already started
+            if self.activity_logger.current_session is None:
+                self.activity_logger.start_session(
+                    reason='wrapper_lock',
+                    process_name='CLI wrapper command',
+                    metrics={
+                        'cpu': metrics.cpu_percent,
+                        'disk_read': metrics.disk_read_mbps,
+                        'disk_write': metrics.disk_write_mbps
+                    }
+                )
+            
             return True
         
         # Evaluate rules (implicit mode)
@@ -289,6 +306,22 @@ class SenthiumDaemon:
         if should_stay_awake:
             self.stats['rules_matched'] += 1
             self.logger.info("🔥 Rules matched - transitioning to ACTIVE state")
+            
+            # Start activity logging
+            matched_rules = [r.rule_name for r in self.rules_engine.get_last_matches()]
+            rule_name = matched_rules[0] if matched_rules else 'unknown'
+            self.activity_logger.start_session(
+                reason='rule_match',
+                rule_name=rule_name,
+                metrics={
+                    'cpu': metrics.cpu_percent,
+                    'disk_read': metrics.disk_read_mbps,
+                    'disk_write': metrics.disk_write_mbps,
+                    'network_down': metrics.network_recv_mbps,
+                    'network_up': metrics.network_sent_mbps
+                }
+            )
+            
             return True
         
         return False
@@ -309,6 +342,11 @@ class SenthiumDaemon:
             self.stats['failsafe_triggers'] += 1
             # Force release wrapper lock on failsafe
             self._wrapper_lock_active = False
+            
+            # End activity session
+            if self.activity_logger.current_session:
+                self.activity_logger.end_session()
+            
             return False
         
         # Check wrapper lock (explicit mode)
@@ -340,6 +378,11 @@ class SenthiumDaemon:
             return True
         else:
             self.logger.info("😴 Rules no longer match - returning to MONITORING")
+            
+            # End activity session
+            if self.activity_logger.current_session:
+                self.activity_logger.end_session()
+            
             return False
     
     def run(self):

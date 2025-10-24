@@ -1,0 +1,1 @@
+{"start_time": "2025-10-24T16:28:14.932794", "end_time": "2025-10-24T16:28:16.933065", "duration_seconds": 2.000271, "trigger_reason": "rule_match", "rule_name": "Test Rule", "process_name": null, "metrics_snapshot": {"cpu": 75, "disk_read": 10, "disk_write": 5}}

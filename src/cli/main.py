@@ -250,6 +250,15 @@ def main() -> int:
     # Service status
     service_subparsers.add_parser('status', help='Check service status')
     
+    # Activity command
+    activity_parser = subparsers.add_parser('activity', help='View activity logs and statistics')
+    activity_parser.add_argument(
+        '--days',
+        type=int,
+        default=1,
+        help='Number of days to show (default: 1)'
+    )
+    
     # Wrapper mode arguments (original functionality)
     parser.add_argument(
         '--stay-awake',
@@ -315,6 +324,11 @@ def main() -> int:
         # Service commands
         elif args.command == 'service':
             return handle_service_command(args)
+        
+        # Activity command
+        elif args.command == 'activity':
+            from utils.activity_log import cmd_activity
+            return cmd_activity(args)
         
         # Wrapper mode (explicit stay-awake)
         elif args.stay_awake:
