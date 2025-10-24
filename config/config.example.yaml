@@ -106,3 +106,39 @@ senthium:
         - "mongodb"
         - "pg_dump"
         - "mysqldump"
+    
+    # Example 8: Work hours schedule
+    - name: "Work Hours"
+      enabled: false  # Disabled by default - enable if needed!
+      type: "schedule"
+      description: "Stay awake during work hours (9am-5pm weekdays)"
+      days:
+        - "mon"
+        - "tue"
+        - "wed"
+        - "thu"
+        - "fri"
+      start_time: "09:00"
+      end_time: "17:00"
+    
+    # Example 9: Gaming schedule
+    - name: "Gaming Hours"
+      enabled: false
+      type: "schedule"
+      description: "Stay awake during evening gaming hours"
+      days:
+        - "fri"
+        - "sat"
+        - "sun"
+      start_time: "19:00"
+      end_time: "23:59"
+    
+    # Example 10: Always-on schedule (24/7)
+    - name: "Always On"
+      enabled: false
+      type: "schedule"
+      description: "Never sleep (useful for servers)"
+      days:
+        - "all"
+      start_time: "00:00"
+      end_time: "23:59"

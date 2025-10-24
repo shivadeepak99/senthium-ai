@@ -62,7 +62,7 @@
         },
         "type": {
           "type": "string",
-          "enum": ["process", "cpu", "disk", "network", "combined"],
+          "enum": ["process", "cpu", "disk", "network", "combined", "schedule"],
           "description": "Type of rule"
         },
         "description": {
@@ -157,6 +157,34 @@
         "duration": {
           "type": "integer",
           "minimum": 1
+        }
+      }
+    },
+    "schedule": {
+      "type": "object",
+      "required": ["name", "type", "days", "start_time", "end_time"],
+      "properties": {
+        "name": {"type": "string"},
+        "type": {"const": "schedule"},
+        "description": {"type": "string"},
+        "enabled": {"type": "boolean", "default": true},
+        "days": {
+          "type": "array",
+          "items": {
+            "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun", "all"]
+          },
+          "minItems": 1,
+          "description": "Days of week when rule applies (or 'all' for every day)"
+        },
+        "start_time": {
+          "type": "string",
+          "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
+          "description": "Start time in HH:MM format (24-hour)"
+        },
+        "end_time": {
+          "type": "string",
+          "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
+          "description": "End time in HH:MM format (24-hour)"
         }
       }
     }

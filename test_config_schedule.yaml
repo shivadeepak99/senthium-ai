@@ -1,0 +1,17 @@
+# Test config with enabled schedule rule
+senthium:
+  version: "0.2"
+  max_awake_duration: 14400
+  poll_interval: 5
+  log_level: "INFO"
+  
+  rules:
+    # All-day schedule (should always match)
+    - name: "Always On"
+      enabled: true
+      type: "schedule"
+      description: "24/7 schedule test"
+      days:
+        - "all"
+      start_time: "00:00"
+      end_time: "23:59"

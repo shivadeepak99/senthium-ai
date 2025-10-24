@@ -100,6 +100,8 @@ class RulesEngine:
                 return self._evaluate_network_rule(rule, metrics)
             elif rule_type == 'combined':
                 return self._evaluate_combined_rule(rule, metrics)
+            elif rule_type == 'schedule':
+                return self._evaluate_schedule_rule(rule, metrics)
             else:
                 return RuleMatch(
                     rule_name=rule_name,
@@ -287,6 +289,72 @@ class RulesEngine:
                 matched=False,
                 reason="Not all conditions met",
                 timestamp=datetime.now()
+            )
+    
+    def _evaluate_schedule_rule(self, rule: Dict, metrics: SystemMetrics) -> RuleMatch:
+        """Evaluate schedule-based rule (time-based stay-awake)"""
+        rule_name = rule['name']
+        days = rule.get('days', [])
+        start_time_str = rule.get('start_time', '00:00')
+        end_time_str = rule.get('end_time', '23:59')
+        
+        now = datetime.now()
+        
+        # Get current day of week (0=Monday, 6=Sunday)
+        current_weekday = now.weekday()
+        day_names = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+        current_day = day_names[current_weekday]
+        
+        # Check if today is in the schedule
+        if 'all' not in days and current_day not in days:
+            return RuleMatch(
+                rule_name=rule_name,
+                matched=False,
+                reason=f"Not active on {current_day.upper()} (active: {', '.join(d.upper() for d in days)})",
+                timestamp=now
+            )
+        
+        # Parse time strings (HH:MM)
+        try:
+            start_hour, start_min = map(int, start_time_str.split(':'))
+            end_hour, end_min = map(int, end_time_str.split(':'))
+            
+            # Create time objects for today
+            start_time = now.replace(hour=start_hour, minute=start_min, second=0, microsecond=0)
+            end_time = now.replace(hour=end_hour, minute=end_min, second=0, microsecond=0)
+            
+            # Handle overnight schedules (e.g., 22:00 - 06:00)
+            if end_time <= start_time:
+                # If current time is after start, extend end time to next day
+                if now >= start_time:
+                    end_time += timedelta(days=1)
+                # If current time is before end, move start time back a day
+                else:
+                    start_time -= timedelta(days=1)
+            
+            # Check if current time is within schedule
+            if start_time <= now <= end_time:
+                time_str = now.strftime('%H:%M')
+                return RuleMatch(
+                    rule_name=rule_name,
+                    matched=True,
+                    reason=f"Within schedule: {start_time_str}-{end_time_str} (now: {time_str})",
+                    timestamp=now
+                )
+            else:
+                return RuleMatch(
+                    rule_name=rule_name,
+                    matched=False,
+                    reason=f"Outside schedule: {start_time_str}-{end_time_str}",
+                    timestamp=now
+                )
+                
+        except Exception as e:
+            return RuleMatch(
+                rule_name=rule_name,
+                matched=False,
+                reason=f"Invalid time format: {e}",
+                timestamp=now
             )
     
     def _check_duration(self, rule_name: str, condition_met: bool, 
