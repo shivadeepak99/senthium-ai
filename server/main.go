@@ -48,11 +48,11 @@ type Metrics struct {
 
 // ActivitySession represents a logged activity session
 type ActivitySession struct {
-	StartTime string            `json:"start_time"`
-	EndTime   string            `json:"end_time"`
-	Duration  int               `json:"duration"`
-	Trigger   string            `json:"trigger"`
-	RuleName  string            `json:"rule_name,omitempty"`
+	StartTime string                 `json:"start_time"`
+	EndTime   string                 `json:"end_time"`
+	Duration  int                    `json:"duration"`
+	Trigger   string                 `json:"trigger"`
+	RuleName  string                 `json:"rule_name,omitempty"`
 	Metrics   map[string]interface{} `json:"metrics"`
 }
 
@@ -67,11 +67,11 @@ type Rule struct {
 
 // Config represents the full Senthium configuration
 type Config struct {
-	Version           string  `json:"version"`
-	MaxAwakeDuration  int     `json:"max_awake_duration"`
-	PollInterval      float64 `json:"poll_interval"`
-	LogLevel          string  `json:"log_level"`
-	Rules             []Rule  `json:"rules"`
+	Version          string  `json:"version"`
+	MaxAwakeDuration int     `json:"max_awake_duration"`
+	PollInterval     float64 `json:"poll_interval"`
+	LogLevel         string  `json:"log_level"`
+	Rules            []Rule  `json:"rules"`
 }
 
 // Server represents the web dashboard server
