@@ -74,7 +74,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'senthium=cli.wrapper:main',
+            'senthium=cli.main:main',
             'senthiumd=daemon.core:main',
         ],
     },

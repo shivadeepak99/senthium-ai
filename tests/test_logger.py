@@ -57,6 +57,11 @@ class TestLogger:
             # Write test message
             logger.info("Test message")
             
+            # Close all handlers to release file lock (Windows fix)
+            for handler in logger.handlers[:]:
+                handler.close()
+                logger.removeHandler(handler)
+            
             # Check file was created
             log_path = log_dir / log_file
             assert log_path.exists()
@@ -81,6 +86,11 @@ class TestLogger:
             )
             
             logger.info("Test")
+            
+            # Close all handlers to release file lock (Windows fix)
+            for handler in logger.handlers[:]:
+                handler.close()
+                logger.removeHandler(handler)
             
             # Check directory was created
             assert log_dir.exists()

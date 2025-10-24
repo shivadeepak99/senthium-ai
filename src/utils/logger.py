@@ -41,6 +41,10 @@ def setup_logger(
     # Avoid duplicate handlers if logger already configured
     if logger.handlers:
         return logger
+
+    # Keep propagation enabled so test capture (caplog) can observe records.
+    # We rely on using unique logger names and delayed file opening to
+    # avoid accidental double-handling and file lock issues.
     
     # Console handler with colors
     console_handler = colorlog.StreamHandler()
@@ -66,10 +70,14 @@ def setup_logger(
         log_dir.mkdir(parents=True, exist_ok=True)
         
         log_path = log_dir / log_file
+        # Use delay=True to avoid opening the file until the first emit.
+        # This reduces the window where the file is held open and helps
+        # on Windows when tests create/remove temporary directories.
         file_handler = logging.handlers.RotatingFileHandler(
             log_path,
             maxBytes=10 * 1024 * 1024,  # 10MB
-            backupCount=5
+            backupCount=5,
+            delay=True
         )
         file_handler.setLevel(logging.DEBUG)
         
