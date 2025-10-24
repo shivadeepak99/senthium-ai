@@ -259,7 +259,26 @@ def main() -> int:
         help='Number of days to show (default: 1)'
     )
     
-    # Wrapper mode arguments (original functionality)
+    # Web dashboard command
+    web_parser = subparsers.add_parser('web', help='Start web dashboard')
+    web_parser.add_argument(
+        '--host',
+        default='127.0.0.1',
+        help='Host to bind to (default: 127.0.0.1)'
+    )
+    web_parser.add_argument(
+        '--port',
+        type=int,
+        default=5000,
+        help='Port to bind to (default: 5000)'
+    )
+    web_parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Run in debug mode'
+    )
+    
+    # Wrapper mode arguments (when no subcommand)
     parser.add_argument(
         '--stay-awake',
         metavar='COMMAND',
@@ -329,6 +348,15 @@ def main() -> int:
         elif args.command == 'activity':
             from utils.activity_log import cmd_activity
             return cmd_activity(args)
+        
+        # Web dashboard command
+        elif args.command == 'web':
+            from web.server import run_dashboard
+            print(f"🌐 Starting Senthium Web Dashboard on http://{args.host}:{args.port}")
+            print("   Press Ctrl+C to stop")
+            print()
+            run_dashboard(host=args.host, port=args.port, debug=args.debug)
+            return 0
         
         # Wrapper mode (explicit stay-awake)
         elif args.stay_awake:

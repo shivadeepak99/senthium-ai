@@ -14,7 +14,7 @@ from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 import eventlet
 
-from daemon.ipc import IPCClient
+from ipc.channel import IPCClient
 from utils.activity_log import ActivityLogger
 from rules.schema import ConfigSchema
 
