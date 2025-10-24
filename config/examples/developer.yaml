@@ -1,0 +1,104 @@
+# Senthium Configuration - Developer Workstation
+# Optimized for software development workflows
+
+senthium:
+  version: "0.4"
+  
+  # Check every 5 seconds for responsiveness
+  poll_interval: 5
+  
+  # Max 4 hours awake (standard work session)
+  max_awake_duration: 14400
+  
+  # Info level logging
+  log_level: "INFO"
+  
+  # Rules (any match = stay awake)
+  rules:
+    # IDEs and Text Editors
+    - name: "Code Editors"
+      type: "process"
+      description: "Keep awake while actively coding"
+      processes:
+        - "code"          # VS Code
+        - "idea"          # IntelliJ IDEA
+        - "pycharm"       # PyCharm
+        - "webstorm"      # WebStorm
+        - "vim"           # Vim
+        - "nvim"          # Neovim
+        - "emacs"         # Emacs
+        - "sublime"       # Sublime Text
+      enabled: true
+    
+    # Build Tools and Compilers
+    - name: "Build Systems"
+      type: "process"
+      description: "Active compilation/building"
+      processes:
+        - "npm"
+        - "yarn"
+        - "pnpm"
+        - "cargo"
+        - "make"
+        - "cmake"
+        - "ninja"
+        - "gcc"
+        - "g++"
+        - "clang"
+        - "rustc"
+        - "go"
+        - "javac"
+        - "gradle"
+        - "maven"
+      enabled: true
+    
+    # Package Managers
+    - name: "Package Installs"
+      type: "process"
+      description: "Installing dependencies"
+      processes:
+        - "pip"
+        - "conda"
+        - "apt"
+        - "yum"
+        - "brew"
+        - "chocolatey"
+      enabled: true
+    
+    # Container Tools
+    - name: "Docker & Kubernetes"
+      type: "process"
+      description: "Container operations"
+      processes:
+        - "docker"
+        - "docker-compose"
+        - "kubectl"
+        - "minikube"
+        - "podman"
+      enabled: true
+    
+    # Version Control
+    - name: "Git Operations"
+      type: "process"
+      description: "Large git operations (clone, pull, push)"
+      processes:
+        - "git"
+        - "git-lfs"
+      enabled: true
+    
+    # Heavy CPU Work (compilation, tests)
+    - name: "High CPU Usage"
+      type: "cpu"
+      description: "Sustained high CPU (compilation, tests)"
+      threshold: 60
+      duration: 30
+      enabled: true
+    
+    # Heavy Disk I/O (builds writing files)
+    - name: "Build Output"
+      type: "disk"
+      description: "Heavy disk writes during builds"
+      read_mbps: 10
+      write_mbps: 20
+      duration: 15
+      enabled: true

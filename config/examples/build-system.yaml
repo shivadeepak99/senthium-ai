@@ -1,0 +1,98 @@
+# Senthium Configuration - CI/CD Build System
+# Optimized for automated builds and continuous integration
+
+senthium:
+  version: "0.4"
+  
+  # Fast polling for responsive CI
+  poll_interval: 5
+  
+  # Max 6 hours awake (long CI pipelines)
+  max_awake_duration: 21600
+  
+  log_level: "INFO"
+  
+  rules:
+    # CI/CD Tools
+    - name: "CI/CD Runners"
+      type: "process"
+      description: "GitHub Actions, Jenkins, GitLab CI"
+      processes:
+        - "actions-runner"
+        - "jenkins"
+        - "gitlab-runner"
+        - "circleci"
+        - "travis"
+        - "azure-pipelines"
+      enabled: true
+    
+    # Build Tools
+    - name: "Build Systems"
+      type: "process"
+      description: "Compilation and build tools"
+      processes:
+        - "make"
+        - "cmake"
+        - "ninja"
+        - "msbuild"
+        - "gradle"
+        - "maven"
+        - "cargo"
+        - "npm"
+        - "yarn"
+        - "pnpm"
+        - "webpack"
+        - "vite"
+        - "rollup"
+      enabled: true
+    
+    # Test Runners
+    - name: "Test Frameworks"
+      type: "process"
+      description: "Running test suites"
+      processes:
+        - "pytest"
+        - "jest"
+        - "mocha"
+        - "karma"
+        - "junit"
+        - "nunit"
+        - "rspec"
+      enabled: true
+    
+    # Containerization
+    - name: "Container Builds"
+      type: "process"
+      description: "Building container images"
+      processes:
+        - "docker"
+        - "buildah"
+        - "kaniko"
+      enabled: true
+    
+    # High CPU (compilation)
+    - name: "Build CPU"
+      type: "cpu"
+      description: "High CPU from compilation"
+      threshold: 60
+      duration: 20
+      enabled: true
+    
+    # Heavy Disk I/O (writing build artifacts)
+    - name: "Build Artifacts"
+      type: "disk"
+      description: "Writing build outputs"
+      read_mbps: 20
+      write_mbps: 50
+      duration: 15
+      enabled: true
+    
+    # Combined rule: CPU + Disk = definitely building
+    - name: "Active Build"
+      type: "combined"
+      description: "High CPU and disk = active build"
+      conditions:
+        cpu_threshold: 50
+        disk_write_mbps: 30
+      duration: 10
+      enabled: true

@@ -1,0 +1,31 @@
+# Senthium Configuration - Minimal Example
+# Simple starting point with basic rules
+
+senthium:
+  version: "0.4"
+  
+  # Check every 10 seconds
+  poll_interval: 10
+  
+  # Max 2 hours awake
+  max_awake_duration: 7200
+  
+  log_level: "INFO"
+  
+  rules:
+    # Single process rule
+    - name: "My Important App"
+      type: "process"
+      description: "Keep awake while app is running"
+      processes:
+        - "chrome"
+        - "firefox"
+      enabled: true
+    
+    # Simple CPU rule
+    - name: "High CPU"
+      type: "cpu"
+      description: "Stay awake if CPU is busy"
+      threshold: 70
+      duration: 30
+      enabled: true

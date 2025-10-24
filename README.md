@@ -1,69 +1,171 @@
-# 🌸 Senthium - Intelligent Lock & Sleep Manager
-💖 [Why I Built Senthium](WHY.md)
+# 🌸 Senthium - Intelligent Power Management Daemon
 
-**Version**: 0.1.0 (Alpha)  
-**Status**: 🚧 In Development
+<div align="center">
 
----
+![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)
+![Python](https://img.shields.io/badge/python-3.9+-green.svg)
+![Tests](https://img.shields.io/badge/tests-73%20passing-brightgreen.svg)
+![Coverage](https://img.shields.io/badge/coverage-71%25-yellow.svg)
+![License](https://img.shields.io/badge/license-MIT-purple.svg)
 
-## 📖 What is Senthium?
+**Keep your PC awake when it matters, let it sleep when it doesn't.**
 
-Senthium is a **deterministic, rule-based** power management utility that intelligently prevents your system from sleeping, locking, or dimming the screen during critical tasks.
+[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](docs/USER_GUIDE.md) • [Examples](config/examples/) • [Why Senthium?](docs/WHY.md)
 
-### 🎯 The Problem
-
-Ever started a long download, compilation, or backup, then needed to step away? You're stuck between:
-- **Leaving your PC unlocked** (security risk)
-- **Letting it sleep** (interrupting your task)
-
-Senthium solves this by **monitoring your system** and keeping it awake only when needed.
+</div>
 
 ---
 
-## ✨ Features (v0.1)
+## 🎯 The Problem
 
-- ✅ **System Metrics Collection**: CPU, Disk I/O, Network I/O, Process monitoring
-- ✅ **Cross-platform Foundation**: Works on Windows, Linux, macOS
-- ✅ **Lightweight**: < 50MB RAM, < 0.5% CPU usage
-- ✅ **Well-tested**: > 80% code coverage
+You start a long download, compilation, or backup... then need to step away. Now you're stuck between:
 
-### 🚧 Coming Soon (v0.2+)
-- Rule-based engine for automatic stay-awake decisions
-- CLI wrapper for explicit command control
-- Failsafe timer for security
-- Platform-specific power management
+- 🔓 **Leaving your PC unlocked** (security risk)
+- 😴 **Letting it sleep** (interrupting your task)
+- ⏰ **Disabling sleep entirely** (wastes power, forget to re-enable)
+
+**Senthium solves this.**
 
 ---
 
-## 🛠️ Installation (Development)
+## ✨ Features
 
-### Prerequisites
-- Python 3.9 or higher
-- pip (Python package manager)
-- Git
+### 🧠 **Intelligent Rules Engine**
+- **5 Rule Types**: Process, CPU, Disk, Network, Combined
+- **Real-time Monitoring**: Detects activity as it happens
+- **Automatic Stay-Awake**: No manual intervention needed
 
-### Setup
+### 🛡️ **Safe & Deterministic**
+- **Failsafe Timer**: Max awake duration prevents infinite lock
+- **State Machine**: Predictable behavior, no surprises
+- **Graceful Shutdown**: Handles signals cleanly
+
+### 🎮 **Flexible Control**
+- **Daemon Mode**: Background service with auto-detection
+- **Wrapper Mode**: Explicit `senthium run <command>` for guaranteed stay-awake
+- **CLI Management**: Start, stop, restart, status commands
+
+### ⚡ **Lightweight & Fast**
+- **< 50MB RAM**: Minimal resource footprint
+- **< 0.5% CPU**: Efficient polling (configurable intervals)
+- **Cross-platform**: Windows, Linux, macOS support
+
+---
+
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
 # Clone repository
 git clone https://github.com/yourusername/senthium.git
 cd senthium
 
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# Windows PowerShell:
-.\venv\Scripts\Activate.ps1
-# Linux/macOS:
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Install in development mode
+# Install with pip
 pip install -e .
+
+# Verify installation
+senthium --version
 ```
+
+### Create Configuration
+
+```bash
+# Copy example config
+cp config/examples/minimal.yaml config/config.yaml
+
+# Edit config (or use examples for developer/downloads/media-server)
+notepad config/config.yaml  # Windows
+nano config/config.yaml     # Linux/macOS
+```
+
+### Start Daemon
+
+```bash
+# Start daemon (runs in background)
+senthium start
+
+# Check status
+senthium status
+
+# View live info
+senthium --info
+
+# Stop daemon
+senthium stop
+```
+
+### Wrapper Mode (Explicit)
+
+```bash
+# Run command and guarantee stay-awake
+senthium run npm run build
+
+# Example: long compilation
+senthium run cargo build --release
+
+# Example: video encoding
+senthium run ffmpeg -i input.mp4 output.mkv
+```
+
+**That's it!** Senthium will:
+1. ✅ Monitor your configured processes/metrics
+2. ✅ Keep PC awake when rules match
+3. ✅ Let it sleep when idle
+4. ✅ Respect max awake duration (failsafe)
+
+---
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| **[User Guide](docs/USER_GUIDE.md)** | Complete usage guide with examples |
+| **[Installation](docs/INSTALL.md)** | Platform-specific installation instructions |
+| **[Configuration Reference](docs/CONFIG_REFERENCE.md)** | All config options explained |
+| **[Why Senthium?](docs/WHY.md)** | The story behind this project |
+| **[Development Plan](docs/DEVELOPMENT_PLAN.md)** | Roadmap and architecture |
+
+---
+
+## 🎨 Example Configurations
+
+**Developer Workstation** (IDEs, builds, Docker)
+```yaml
+rules:
+  - name: "Code Editors"
+    type: "process"
+    processes: ["code", "pycharm", "vim"]
+  - name: "Build Systems"
+    type: "process"
+    processes: ["npm", "cargo", "make", "docker"]
+```
+
+**Download Manager** (Torrents, network activity)
+```yaml
+rules:
+  - name: "BitTorrent"
+    type: "process"
+    processes: ["qbittorrent", "transmission"]
+  - name: "High Network"
+    type: "network"
+    download_mbps: 5.0
+    duration: 20
+```
+
+**Media Server** (Plex, transcoding)
+```yaml
+rules:
+  - name: "Media Servers"
+    type: "process"
+    processes: ["Plex Media Server", "jellyfin"]
+  - name: "Transcoding CPU"
+    type: "cpu"
+    threshold: 50
+    duration: 60
+```
+
+👉 **See [config/examples/](config/examples/) for complete configs**
 
 ---
 
@@ -76,31 +178,11 @@ pytest
 # Run with coverage
 pytest --cov=src --cov-report=html
 
-# Run only fast tests
-pytest -m "not slow"
+# View coverage report
+# Open htmlcov/index.html in browser
 ```
 
-Open `htmlcov/index.html` to see detailed coverage report.
-
----
-
-## 🚀 Usage (v0.1)
-
-Currently, v0.1 only includes the **System Monitor** module for testing:
-
-```bash
-# Run live system monitor
-cd src
-python -m daemon.monitor
-```
-
-This will display live metrics every 2 seconds:
-- CPU usage
-- Disk I/O rates
-- Network I/O rates
-- Running processes
-
-Press `Ctrl+C` to stop.
+**Current Status**: 73/74 tests passing, 71% coverage
 
 ---
 
@@ -110,48 +192,61 @@ Press `Ctrl+C` to stop.
 senthium/
 ├── src/
 │   ├── daemon/
-│   │   ├── monitor.py       # System metrics collector (✅ v0.1)
-│   │   └── core.py          # Main daemon (🚧 v0.2)
-│   ├── utils/
-│   │   └── logger.py        # Logging utility (✅ v0.1)
-│   └── ...
-├── tests/
-│   └── test_monitor.py      # Monitor tests (✅ v0.1)
-├── requirements.txt
-├── setup.py
-└── README.md
+│   │   ├── core.py          # Main daemon state machine ✅
+│   │   ├── monitor.py       # System metrics collector ✅
+│   │   └── control.py       # Daemon management (start/stop) ✅
+│   ├── rules/
+│   │   └── engine.py        # Rules evaluation engine ✅
+│   ├── ipc/
+│   │   ├── server.py        # IPC server (Unix socket/Named Pipe) ✅
+│   │   └── client.py        # IPC client ✅
+│   ├── cli/
+│   │   ├── main.py          # CLI entry point ✅
+│   │   └── wrapper.py       # Explicit wrapper mode ✅
+│   └── utils/
+│       ├── logger.py        # Logging ✅
+│       └── pid.py           # PID file management ✅
+├── config/
+│   └── examples/            # Example configurations ✅
+├── docs/                    # Documentation ✅
+└── tests/                   # Test suite ✅
 ```
-
----
-
-## 🤝 Contributing
-
-This project is in early development. Contributions are welcome once we reach v1.0!
-
-See `docs/DEVELOPMENT.md` for development guidelines.
-
----
-
-## 📄 License
-
-MIT License - See `LICENSE` file for details.
 
 ---
 
 ## 🗺️ Roadmap
 
-- **v0.1** (Current): System monitor + project foundation ✅
-- **v0.2**: Rules engine
-- **v0.3**: Daemon core logic
-- **v0.4**: Linux power management (Alpha release)
-- **v0.5**: Windows port
-- **v0.6**: macOS port (Beta release)
-- **v1.0**: Public release
+- ✅ **v0.1**: System monitoring foundation
+- ✅ **v0.2**: Rules engine (5 rule types)
+- ✅ **v0.3**: Daemon core (state machine, power management)
+- ✅ **v0.4**: IPC + CLI wrapper + daemon management (Current)
+- 🚧 **v0.5**: systemd/Windows service integration
+- 🚧 **v0.6**: GUI configuration tool
+- 🚧 **v1.0**: Public release
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+MIT License - See [LICENSE](LICENSE) file for details.
 
 ---
 
 ## 💖 Credits
 
-Built with love and determination 💪
+Built with love by a developer who got tired of interrupted downloads 💪
 
-**Tech Stack**: Python, psutil, pytest, colorlog
+**Tech Stack**: Python • psutil • pytest • colorlog • PyYAML
+
+**Special Thanks**: Everyone who's had their PC sleep mid-compile 😅

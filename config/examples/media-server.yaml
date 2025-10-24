@@ -1,0 +1,63 @@
+# Senthium Configuration - Media Server
+# Optimized for Plex, Jellyfin, and transcoding
+
+senthium:
+  version: "0.4"
+  
+  # Check every 15 seconds (transcoding is heavy)
+  poll_interval: 15
+  
+  # Max 8 hours awake (movie marathons)
+  max_awake_duration: 28800
+  
+  log_level: "INFO"
+  
+  rules:
+    # Media Servers
+    - name: "Media Server Processes"
+      type: "process"
+      description: "Plex, Jellyfin, Emby servers"
+      processes:
+        - "Plex Media Server"
+        - "PlexTranscoder"
+        - "jellyfin"
+        - "emby"
+        - "kodi"
+      enabled: true
+    
+    # Video Transcoding
+    - name: "Video Encoders"
+      type: "process"
+      description: "Active video transcoding"
+      processes:
+        - "ffmpeg"
+        - "handbrake"
+        - "x264"
+        - "x265"
+      enabled: true
+    
+    # High CPU from Transcoding
+    - name: "Transcoding CPU"
+      type: "cpu"
+      description: "Heavy CPU usage from transcoding"
+      threshold: 50
+      duration: 60
+      enabled: true
+    
+    # Heavy Disk I/O (media streaming + transcoding)
+    - name: "Media Streaming"
+      type: "disk"
+      description: "Disk I/O from media streaming"
+      read_mbps: 30
+      write_mbps: 10
+      duration: 30
+      enabled: true
+    
+    # Network streaming to clients
+    - name: "Network Streaming"
+      type: "network"
+      description: "High upload speeds (streaming to clients)"
+      download_mbps: 2.0
+      upload_mbps: 10.0
+      duration: 45
+      enabled: true

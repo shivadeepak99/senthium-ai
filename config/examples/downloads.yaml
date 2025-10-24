@@ -1,0 +1,58 @@
+# Senthium Configuration - Download Manager
+# Optimized for torrent clients and download tools
+
+senthium:
+  version: "0.4"
+  
+  # Check every 10 seconds (downloads are slower)
+  poll_interval: 10
+  
+  # Max 12 hours awake (long downloads)
+  max_awake_duration: 43200
+  
+  log_level: "INFO"
+  
+  rules:
+    # Torrent Clients
+    - name: "BitTorrent Clients"
+      type: "process"
+      description: "Active torrent downloads"
+      processes:
+        - "qbittorrent"
+        - "transmission"
+        - "deluge"
+        - "utorrent"
+        - "rtorrent"
+        - "aria2c"
+      enabled: true
+    
+    # Download Managers
+    - name: "Download Tools"
+      type: "process"
+      description: "Active downloads"
+      processes:
+        - "wget"
+        - "curl"
+        - "axel"
+        - "youtube-dl"
+        - "yt-dlp"
+        - "gallery-dl"
+      enabled: true
+    
+    # Heavy Network Activity (downloads in progress)
+    - name: "High Network Usage"
+      type: "network"
+      description: "Sustained high download speeds"
+      download_mbps: 5.0
+      upload_mbps: 2.0
+      duration: 20
+      enabled: true
+    
+    # Heavy Disk Writes (saving downloads)
+    - name: "Download Writing"
+      type: "disk"
+      description: "Heavy disk writes from downloads"
+      read_mbps: 5
+      write_mbps: 50
+      duration: 30
+      enabled: true
