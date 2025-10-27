@@ -52,8 +52,16 @@ export default function SecurityPage() {
         fetch('http://localhost:8080/api/security/alerts?limit=20')
       ])
       
-      if (statsRes.ok) setStats(await statsRes.json())
-      if (alertsRes.ok) setAlerts(await alertsRes.json())
+      if (statsRes.ok) {
+        const statsData = await statsRes.json()
+        setStats(statsData)
+      }
+      
+      if (alertsRes.ok) {
+        const alertsData = await alertsRes.json()
+        // Handle both array and null/undefined responses
+        setAlerts(Array.isArray(alertsData) ? alertsData : [])
+      }
       
       setLoading(false)
     } catch (e) {
@@ -238,19 +246,19 @@ export default function SecurityPage() {
           <StatCard
             icon={<Camera className="w-6 h-6" />}
             label="Security Checks"
-            value={stats?.total_checks.toString() || '0'}
+            value={(stats?.total_checks || 0).toString()}
             color="blue"
           />
           <StatCard
             icon={<AlertTriangle className="w-6 h-6" />}
             label="Threats Detected"
-            value={stats?.unauthorized_detections.toString() || '0'}
+            value={(stats?.unauthorized_detections || 0).toString()}
             color="red"
           />
           <StatCard
             icon={<Users className="w-6 h-6" />}
             label="Authorized Users"
-            value={stats?.authorized_users.length.toString() || '0'}
+            value={(stats?.authorized_users?.length || 0).toString()}
             color="purple"
           />
         </div>
