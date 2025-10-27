@@ -219,6 +219,21 @@ class SenthiumDaemon:
                     data=info_data
                 )
             
+            elif command == "METRICS":
+                # Dashboard requesting real-time system metrics
+                try:
+                    metrics = self.monitor.get_metrics()
+                    return IPCResponse(
+                        success=True,
+                        message="Metrics retrieved successfully",
+                        data=metrics.to_dict()
+                    )
+                except Exception as e:
+                    return IPCResponse(
+                        success=False,
+                        message=f"Failed to get metrics: {str(e)}"
+                    )
+            
             elif command == "RELOAD_CONFIG":
                 # CLI requesting config reload
                 try:

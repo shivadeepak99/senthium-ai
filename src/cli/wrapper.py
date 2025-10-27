@@ -207,6 +207,40 @@ def cmd_info() -> int:
         return 1
 
 
+def cmd_metrics() -> int:
+    """
+    Show real-time system metrics in JSON format (for dashboard).
+    
+    Returns:
+        0 on success, 1 on failure
+    """
+    import json
+    
+    ipc_client = IPCClient(timeout=5.0)
+    
+    try:
+        response = ipc_client.send_command("METRICS")
+        
+        if not response.success:
+            # Print error as JSON for consistent parsing
+            error_data = {"error": response.message}
+            print(json.dumps(error_data))
+            return 1
+            
+        # Print metrics as JSON for easy parsing by Go server
+        print(json.dumps(response.data))
+        return 0
+        
+    except ConnectionError as e:
+        error_data = {"error": str(e)}
+        print(json.dumps(error_data))
+        return 1
+    except Exception as e:
+        error_data = {"error": str(e)}
+        print(json.dumps(error_data))
+        return 1
+
+
 def cmd_reload() -> int:
     """
     Reload daemon configuration without restart.

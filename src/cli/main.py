@@ -299,6 +299,12 @@ def main() -> int:
     )
     
     parser.add_argument(
+        '--metrics',
+        action='store_true',
+        help='Show real-time system metrics (for dashboard integration)'
+    )
+    
+    parser.add_argument(
         '--reload',
         action='store_true',
         help='Reload daemon configuration'
@@ -375,6 +381,12 @@ def main() -> int:
             from cli.wrapper import cmd_info, setup_cli_logging
             setup_cli_logging(args.wrapper_log_level)
             return cmd_info()
+        
+        # Metrics command (for dashboard)
+        elif args.metrics:
+            from cli.wrapper import cmd_metrics, setup_cli_logging
+            setup_cli_logging(args.wrapper_log_level)
+            return cmd_metrics()
         
         # Reload command
         elif args.reload:
