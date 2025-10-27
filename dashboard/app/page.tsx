@@ -23,9 +23,11 @@ interface DaemonStatus {
 interface ActivitySession {
   start_time: string
   end_time: string
-  duration: number
-  trigger: string
-  rule_name?: string
+  duration_seconds: number
+  trigger_reason: string
+  rule_name?: string | null
+  process_name?: string | null
+  metrics_snapshot: Record<string, any>
 }
 
 export default function Dashboard() {
@@ -242,7 +244,7 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="font-semibold text-lg">
-                        {session.rule_name || 'Manual Lock'}
+                        {session.rule_name || session.process_name || 'Manual Lock'}
                       </div>
                       <div className="text-sm text-purple-300">
                         {new Date(session.start_time).toLocaleString()}
@@ -250,10 +252,10 @@ export default function Dashboard() {
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-blue-400">
-                        {formatDuration(session.duration)}
+                        {formatDuration(Math.floor(session.duration_seconds))}
                       </div>
                       <div className="text-xs text-gray-400">
-                        {session.trigger}
+                        {session.trigger_reason === 'rule_match' ? 'Rule Match' : 'Wrapper Lock'}
                       </div>
                     </div>
                   </div>

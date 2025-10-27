@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -49,12 +50,13 @@ type Metrics struct {
 
 // ActivitySession represents a logged activity session
 type ActivitySession struct {
-	StartTime string                 `json:"start_time"`
-	EndTime   string                 `json:"end_time"`
-	Duration  int                    `json:"duration"`
-	Trigger   string                 `json:"trigger"`
-	RuleName  string                 `json:"rule_name,omitempty"`
-	Metrics   map[string]interface{} `json:"metrics"`
+	StartTime       string                 `json:"start_time"`
+	EndTime         string                 `json:"end_time"`
+	DurationSeconds float64                `json:"duration_seconds"`
+	TriggerReason   string                 `json:"trigger_reason"`
+	RuleName        *string                `json:"rule_name"`
+	ProcessName     *string                `json:"process_name"`
+	MetricsSnapshot map[string]interface{} `json:"metrics_snapshot"`
 }
 
 // Rule represents a Senthium rule
@@ -190,23 +192,40 @@ func (s *Server) GetActivityLogs(w http.ResponseWriter, r *http.Request) {
 		days = "7"
 	}
 
-	output, err := s.runPythonCommand("activity", "--days", days)
-	if err != nil {
-		// Return empty activity on error
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"sessions": []ActivitySession{},
-			"error":    "Failed to fetch activity logs",
-		})
-		return
+	// Parse days parameter
+	numDays := 7
+	fmt.Sscanf(days, "%d", &numDays)
+
+	// Read JSONL files from logs/activity/
+	var sessions []ActivitySession
+	
+	for i := 0; i < numDays; i++ {
+		date := time.Now().AddDate(0, 0, -i)
+		filename := fmt.Sprintf("logs/activity/activity_%s.jsonl", date.Format("2006-01-02"))
+		
+		file, err := os.Open(filename)
+		if err != nil {
+			continue // File doesn't exist for this day
+		}
+		defer file.Close()
+
+		// Read each line (JSONL format)
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			var session ActivitySession
+			if err := json.Unmarshal(scanner.Bytes(), &session); err != nil {
+				log.Printf("Failed to parse activity session: %v", err)
+				continue
+			}
+			sessions = append(sessions, session)
+		}
 	}
 
-	// For now, return empty sessions
-	// TODO: Parse the text output and convert to JSON
+	// Return sessions
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"sessions": []ActivitySession{},
-		"raw":      string(output),
+		"sessions": sessions,
+		"count":    len(sessions),
 	})
 }
 
