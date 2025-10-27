@@ -170,7 +170,7 @@ class FaceRecognizer:
                     best_match_name = user_name
         
         # Check if best match is within tolerance
-        if best_match_distance <= self.tolerance:
+        if best_match_distance <= self.tolerance and best_match_name is not None:
             confidence = 1.0 - best_match_distance
             logger.debug(f"✅ Recognized: {best_match_name} (confidence: {confidence:.2f})")
             return (best_match_name, confidence)

@@ -1,7 +1,13 @@
 """
-Flask Backend for Senthium Web Dashboard
+Flask Backend for Senthium Web Dashboard (DEPRECATED - Using Go Backend)
 Real-time monitoring with WebSocket updates
+
+NOTE: This Flask implementation is deprecated.
+We're now using the Go backend (backend/) with Next.js frontend (web-dashboard/).
+This file is kept for reference only.
 """
+
+# type: ignore - Flask not installed in Python 3.11 venv (using Go backend instead)
 
 import logging
 import json
@@ -9,10 +15,10 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
-from flask import Flask, render_template, jsonify, request
-from flask_cors import CORS
-from flask_socketio import SocketIO, emit
-import eventlet
+from flask import Flask, render_template, jsonify, request  # type: ignore
+from flask_cors import CORS  # type: ignore
+from flask_socketio import SocketIO, emit  # type: ignore
+import eventlet  # type: ignore
 
 from ipc.channel import IPCClient
 from utils.activity_log import ActivityLogger

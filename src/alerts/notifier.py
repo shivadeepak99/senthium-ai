@@ -199,8 +199,14 @@ class AlertNotifier:
             email_to = self.config.get('email_to')
             email_password = self.config.get('email_password')
             
+            # Type guard: ensure all required fields are strings
             if not all([smtp_host, email_from, email_to, email_password]):
                 logger.warning("⚠️ Email config incomplete, skipping")
+                return False
+            
+            if not isinstance(smtp_host, str) or not isinstance(email_from, str) or \
+               not isinstance(email_to, str) or not isinstance(email_password, str):
+                logger.warning("⚠️ Email config has invalid types, skipping")
                 return False
             
             # Create email
@@ -227,7 +233,7 @@ This is an automated alert from Senthium AI Security System.
             
             msg.attach(MIMEText(body, 'plain'))
             
-            # Send email
+            # Send email (type is now guaranteed)
             with smtplib.SMTP(smtp_host, smtp_port) as server:
                 server.starttls()
                 server.login(email_from, email_password)

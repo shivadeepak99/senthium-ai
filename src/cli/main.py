@@ -388,8 +388,9 @@ def main() -> int:
             
             # Load config to get settings
             try:
+                from pathlib import Path
                 validator = ConfigSchema()
-                config_data = validator.load_and_validate('config/config.yaml')
+                config_data = validator.load_and_validate(Path('config/config.yaml'))
                 security_config = config_data.get('senthium', {}).get('security', {})
             except:
                 security_config = {}

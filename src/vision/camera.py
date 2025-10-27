@@ -93,6 +93,10 @@ class CameraMonitor:
             if not self.initialize():
                 return None
         
+        # Type guard: camera is guaranteed to be initialized here
+        if self.camera is None:
+            return None
+        
         try:
             ret, frame = self.camera.read()
             
