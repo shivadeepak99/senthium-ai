@@ -90,6 +90,31 @@ class SenthiumDaemon:
                 self.logger.warning(f"⚠️  Failed to start IPC server: {e} (CLI commands will not work)")
                 self.ipc_server = None
             
+            # 🔒 Initialize AI Security (v0.6.0)
+            self.security_enabled = False
+            self.security_manager = None
+            self.security_check_interval = 2  # Check every N polls (default: every 10 seconds)
+            
+            security_config = self.config.get('security', {})
+            if security_config.get('enabled', False):
+                try:
+                    from src.vision.security_manager import SecurityManager
+                    self.security_manager = SecurityManager(config=security_config)
+                    self.security_enabled = True
+                    
+                    # Calculate check interval (convert seconds to poll counts)
+                    check_interval_seconds = security_config.get('check_interval_seconds', 10)
+                    self.security_check_interval = max(1, int(check_interval_seconds / self.poll_interval))
+                    
+                    self.logger.info("✅ AI Security enabled (face recognition active)")
+                    self.logger.info(f"   Check interval: every {check_interval_seconds}s ({self.security_check_interval} polls)")
+                except Exception as e:
+                    self.logger.error(f"⚠️  Failed to initialize AI security: {e}")
+                    self.logger.warning("   Continuing without security features...")
+                    self.security_enabled = False
+            else:
+                self.logger.info("ℹ️  AI Security disabled in config")
+            
             # Statistics
             self.stats = {
                 'started_at': datetime.now(),
@@ -431,6 +456,27 @@ class SenthiumDaemon:
                     self.logger.error(f"Failed to gather metrics: {e}")
                     time.sleep(self.poll_interval)
                     continue
+                
+                # 🔒 AI SECURITY CHECK (v0.6.0)
+                # Perform face recognition security check if enabled
+                if self.security_enabled and self.security_manager is not None:
+                    try:
+                        # Only check every N polls (security_check_interval)
+                        if self.stats['poll_count'] % self.security_check_interval == 0:
+                            security_result = self.security_manager.perform_security_check()
+                            
+                            # Log security events
+                            if security_result and security_result['unknown_faces_count'] > 0:
+                                self.logger.warning(
+                                    f"⚠️ SECURITY ALERT! {security_result['unknown_faces_count']} "
+                                    f"unauthorized face(s) detected!"
+                                )
+                            elif security_result and security_result['authorized_faces_count'] > 0:
+                                self.logger.debug(
+                                    f"✅ Authorized user recognized: {security_result['detected_faces_count']} face(s)"
+                                )
+                    except Exception as e:
+                        self.logger.error(f"Security check failed: {e}")
                 
                 # State machine logic
                 if self.state == DaemonState.MONITORING:
