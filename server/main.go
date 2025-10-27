@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -124,14 +125,39 @@ func (s *Server) runPythonCommand(args ...string) ([]byte, error) {
 
 // GetDaemonStatus returns current daemon status
 func (s *Server) GetDaemonStatus(w http.ResponseWriter, r *http.Request) {
-	output, err := s.runPythonCommand("status", "--json")
-	if err != nil {
-		http.Error(w, "Failed to get daemon status", http.StatusInternalServerError)
-		return
+	output, err := s.runPythonCommand("status")
+
+	// Default response structure
+	status := DaemonStatus{
+		Running:    false,
+		State:      "STOPPED",
+		Uptime:     0,
+		Failsafe:   0,
+		LastUpdate: time.Now(),
+		SystemMetrics: Metrics{
+			CPU:         0,
+			DiskRead:    0,
+			DiskWrite:   0,
+			NetDownload: 0,
+			NetUpload:   0,
+			Processes:   0,
+		},
+	}
+
+	// If command succeeded, daemon is running
+	if err == nil && len(output) > 0 {
+		outputStr := string(output)
+		// Parse the text output (daemon is running if no error)
+		if !strings.Contains(outputStr, "not running") {
+			status.Running = true
+			status.State = "ACTIVE"
+			// Try to parse uptime, etc from output
+			// For now, just mark as running
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(output)
+	json.NewEncoder(w).Encode(status)
 }
 
 // GetActivityLogs returns activity logs
@@ -141,14 +167,24 @@ func (s *Server) GetActivityLogs(w http.ResponseWriter, r *http.Request) {
 		days = "7"
 	}
 
-	output, err := s.runPythonCommand("activity", "--days", days, "--json")
+	output, err := s.runPythonCommand("activity", "--days", days)
 	if err != nil {
-		http.Error(w, "Failed to get activity logs", http.StatusInternalServerError)
+		// Return empty activity on error
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"sessions": []ActivitySession{},
+			"error":    "Failed to fetch activity logs",
+		})
 		return
 	}
 
+	// For now, return empty sessions
+	// TODO: Parse the text output and convert to JSON
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(output)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"sessions": []ActivitySession{},
+		"raw":      string(output),
+	})
 }
 
 // GetConfig returns current configuration
