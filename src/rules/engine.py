@@ -49,6 +49,9 @@ class RulesEngine:
         # Duration tracking (for sustained conditions)
         self._condition_start_times: Dict[str, datetime] = {}
         
+        # Track last evaluation results
+        self._last_matches: List[RuleMatch] = []
+        
         self.logger.info(f"RulesEngine initialized with {len(self.rules)} rules")
         self.logger.info(f"Config version: {self.senthium_config['version']}")
     
@@ -75,6 +78,9 @@ class RulesEngine:
             if match.matched:
                 self.logger.info(f"Rule matched: {match.rule_name} - {match.reason}")
         
+        # Save matches for later retrieval
+        self._last_matches = matches
+        
         # Return True if ANY rule matched (OR logic)
         any_matched = any(m.matched for m in matches)
         
@@ -83,6 +89,15 @@ class RulesEngine:
             self.logger.debug(f"Stay awake requested by: {', '.join(matched_rules)}")
         
         return any_matched
+    
+    def get_last_matches(self) -> List[RuleMatch]:
+        """
+        Get the results of the last evaluation
+        
+        Returns:
+            List of RuleMatch objects from last evaluate() call
+        """
+        return [m for m in self._last_matches if m.matched]
     
     def _evaluate_rule(self, rule: Dict, metrics: SystemMetrics) -> RuleMatch:
         """Evaluate a single rule"""
