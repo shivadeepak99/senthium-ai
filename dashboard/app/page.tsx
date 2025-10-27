@@ -131,6 +131,13 @@ export default function Dashboard() {
             <p className="text-purple-300 mt-1">Intelligent Sleep Management • v0.5.0</p>
           </div>
           <div className="flex gap-3">
+            <a
+              href="/security"
+              className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 rounded-lg transition-all"
+            >
+              <Activity className="w-4 h-4" />
+              🔒 Security
+            </a>
             {status?.running ? (
               <>
                 <button
