@@ -97,12 +97,12 @@ func getPythonPath() string {
 	// If running with 'go run', we're in server/ directory
 	cwd, _ := os.Getwd()
 	projectRoot := cwd
-	
+
 	// If cwd ends with "server", go up one level
 	if filepath.Base(cwd) == "server" {
 		projectRoot = filepath.Dir(cwd)
 	}
-	
+
 	if runtime.GOOS == "windows" {
 		venvPath := filepath.Join(projectRoot, "venv", "Scripts", "python.exe")
 		if _, err := os.Stat(venvPath); err == nil {
@@ -130,19 +130,19 @@ func getConfigPath() string {
 func (s *Server) runPythonCommand(args ...string) ([]byte, error) {
 	cmdArgs := append([]string{"-m", "src.cli.main"}, args...)
 	cmd := exec.Command(s.pythonPath, cmdArgs...)
-	
+
 	// Set working directory to project root (parent of server/)
 	projectRoot := filepath.Join(filepath.Dir(s.pythonPath), "..", "..")
 	cmd.Dir = projectRoot
-	
+
 	// Capture both stdout and stderr
 	output, err := cmd.CombinedOutput()
-	
-	// Log for debugging
-	if err != nil {
+
+	// Only log unexpected errors (not "daemon not running")
+	if err != nil && !strings.Contains(string(output), "not running") {
 		log.Printf("Command failed: %s %v\nOutput: %s\nError: %v", s.pythonPath, cmdArgs, string(output), err)
 	}
-	
+
 	return output, err
 }
 
