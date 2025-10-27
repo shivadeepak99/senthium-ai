@@ -86,7 +86,7 @@ if 'security_manager' not in st.session_state:
 
 # Sidebar
 with st.sidebar:
-    st.image("https://via.placeholder.com/200x100/667eea/ffffff?text=SENTHIUM", use_container_width=True)
+    st.image("https://via.placeholder.com/200x100/667eea/ffffff?text=SENTHIUM", width="stretch")
     st.title("🔒 Senthium AI")
     st.markdown("### Navigation")
     
@@ -206,7 +206,7 @@ if page == "📊 Dashboard":
         snapshots = sorted(snapshots_dir.glob("*.jpg"), key=lambda x: x.stat().st_mtime, reverse=True)
         if snapshots:
             latest = snapshots[0]
-            st.image(str(latest), caption=f"Captured: {latest.name}", use_container_width=True)
+            st.image(str(latest), caption=f"Captured: {latest.name}", width="stretch")
         else:
             st.info("No snapshots available yet.")
     else:
@@ -228,7 +228,7 @@ elif page == "👤 Face Enrollment":
         if uploaded_file is not None:
             # Display preview
             image = Image.open(uploaded_file)
-            st.image(image, caption="Preview", use_container_width=True)
+            st.image(image, caption="Preview", width="stretch")
             
             if st.button("🎯 Enroll Face", key="enroll_btn"):
                 if not name:
@@ -276,7 +276,7 @@ elif page == "👤 Face Enrollment":
                     name = face_file.stem
                     with st.expander(f"👤 {name}"):
                         try:
-                            st.image(str(face_file), use_container_width=True)
+                            st.image(str(face_file), width="stretch")
                         except:
                             st.text(name)
             else:
