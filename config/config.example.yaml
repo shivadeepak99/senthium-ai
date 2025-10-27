@@ -20,6 +20,42 @@ senthium:
   log_level: "INFO"
   
   # ==========================================
+  # AI Security Settings
+  # ==========================================
+  
+  security:
+    # Enable AI-powered security monitoring
+    enabled: false  # Set to true to enable camera monitoring
+    
+    # Camera settings
+    camera_index: 0  # Default webcam (0 = first camera)
+    
+    # Face detection model: 'hog' (fast, CPU) or 'cnn' (accurate, GPU)
+    detection_model: "hog"
+    
+    # Recognition tolerance (0.6 = balanced, lower = stricter matching)
+    recognition_tolerance: 0.6
+    
+    # How often to check for unauthorized access (seconds)
+    check_interval_seconds: 10
+    
+    # Minimum time between alerts (seconds) - prevents spam
+    alert_cooldown_seconds: 300  # 5 minutes
+    
+    # Alert channels configuration
+    alerts:
+      # Discord webhook (easiest to set up!)
+      discord_webhook_url: ""  # Add your Discord webhook URL here
+      
+      # Email alerts (optional)
+      email_enabled: false
+      email_smtp_host: ""  # e.g., smtp.gmail.com
+      email_smtp_port: 587
+      email_from: ""  # Your email address
+      email_to: ""  # Destination email
+      email_password: ""  # App password or SMTP password
+  
+  # ==========================================
   # Rules
   # ==========================================
   # Rules are evaluated with OR logic:

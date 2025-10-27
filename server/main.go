@@ -198,11 +198,11 @@ func (s *Server) GetActivityLogs(w http.ResponseWriter, r *http.Request) {
 
 	// Read JSONL files from logs/activity/
 	var sessions []ActivitySession
-	
+
 	for i := 0; i < numDays; i++ {
 		date := time.Now().AddDate(0, 0, -i)
 		filename := fmt.Sprintf("logs/activity/activity_%s.jsonl", date.Format("2006-01-02"))
-		
+
 		file, err := os.Open(filename)
 		if err != nil {
 			continue // File doesn't exist for this day

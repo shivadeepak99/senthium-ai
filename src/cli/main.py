@@ -278,6 +278,18 @@ def main() -> int:
         help='Run in debug mode'
     )
     
+    # Security enrollment command
+    enroll_parser = subparsers.add_parser('enroll', help='Enroll authorized face for security monitoring')
+    enroll_parser.add_argument(
+        '--name',
+        default='Owner',
+        help='Name for this authorized user (default: Owner)'
+    )
+    enroll_parser.add_argument(
+        '--image',
+        help='Path to image file (or use camera if not specified)'
+    )
+    
     # Wrapper mode arguments (when no subcommand)
     parser.add_argument(
         '--stay-awake',
@@ -363,6 +375,53 @@ def main() -> int:
             print()
             run_dashboard(host=args.host, port=args.port, debug=args.debug)
             return 0
+        
+        # Enrollment command
+        elif args.command == 'enroll':
+            from vision.security_manager import SecurityManager
+            from rules.schema import ConfigValidator
+            
+            print("=" * 60)
+            print("  📸 Senthium Security Enrollment")
+            print("=" * 60)
+            print()
+            
+            # Load config to get settings
+            try:
+                validator = ConfigValidator()
+                config_data = validator.load_and_validate('config/config.yaml')
+                security_config = config_data.get('senthium', {}).get('security', {})
+            except:
+                security_config = {}
+            
+            manager = SecurityManager(config=security_config)
+            
+            if args.image:
+                # Enroll from image file
+                print(f"  Loading image: {args.image}")
+                success = manager.enroll_owner_from_file(args.image, args.name)
+            else:
+                # Enroll from camera
+                print(f"  Look at your camera!")
+                print(f"  Capturing in 3 seconds...")
+                import time
+                for i in range(3, 0, -1):
+                    print(f"  {i}...")
+                    time.sleep(1)
+                print("  📸 Smile!")
+                success = manager.enroll_owner_from_camera(args.name)
+            
+            print()
+            if success:
+                print(f"  ✅ SUCCESS! {args.name} has been enrolled.")
+                print(f"  Security monitoring will now recognize you!")
+            else:
+                print(f"  ❌ FAILED! Could not enroll {args.name}.")
+                print(f"  Make sure your face is clearly visible.")
+            print("=" * 60)
+            
+            manager.cleanup()
+            return 0 if success else 1
         
         # Wrapper mode (explicit stay-awake)
         elif args.stay_awake:
