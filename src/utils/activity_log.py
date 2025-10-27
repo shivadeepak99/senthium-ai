@@ -282,13 +282,13 @@ def print_activity_summary(days: int = 1):
         
         if summary['total_sessions'] == 0:
             if i == 0:  # Show today even if empty
-                print(f"📅 {summary['date']} (Today)")
+                print(f"[*] {summary['date']} (Today)")
                 print(f"   No activity recorded")
                 print()
             continue
         
         day_label = "Today" if i == 0 else "Yesterday" if i == 1 else ""
-        print(f"📅 {summary['date']}{' (' + day_label + ')' if day_label else ''}")
+        print(f"[*] {summary['date']}{' (' + day_label + ')' if day_label else ''}")
         print(f"   Sessions: {summary['total_sessions']}")
         print(f"   Duration: {summary['total_duration_human']}")
         

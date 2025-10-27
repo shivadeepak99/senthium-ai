@@ -93,14 +93,24 @@ func NewServer() *Server {
 
 // getPythonPath returns the path to the Python executable
 func getPythonPath() string {
+	// Try to find project root (where venv is located)
+	// If running with 'go run', we're in server/ directory
+	cwd, _ := os.Getwd()
+	projectRoot := cwd
+	
+	// If cwd ends with "server", go up one level
+	if filepath.Base(cwd) == "server" {
+		projectRoot = filepath.Dir(cwd)
+	}
+	
 	if runtime.GOOS == "windows" {
-		venvPath := filepath.Join("venv", "Scripts", "python.exe")
+		venvPath := filepath.Join(projectRoot, "venv", "Scripts", "python.exe")
 		if _, err := os.Stat(venvPath); err == nil {
 			return venvPath
 		}
 		return "python"
 	}
-	venvPath := filepath.Join("venv", "bin", "python")
+	venvPath := filepath.Join(projectRoot, "venv", "bin", "python")
 	if _, err := os.Stat(venvPath); err == nil {
 		return venvPath
 	}
@@ -120,7 +130,20 @@ func getConfigPath() string {
 func (s *Server) runPythonCommand(args ...string) ([]byte, error) {
 	cmdArgs := append([]string{"-m", "src.cli.main"}, args...)
 	cmd := exec.Command(s.pythonPath, cmdArgs...)
-	return cmd.Output()
+	
+	// Set working directory to project root (parent of server/)
+	projectRoot := filepath.Join(filepath.Dir(s.pythonPath), "..", "..")
+	cmd.Dir = projectRoot
+	
+	// Capture both stdout and stderr
+	output, err := cmd.CombinedOutput()
+	
+	// Log for debugging
+	if err != nil {
+		log.Printf("Command failed: %s %v\nOutput: %s\nError: %v", s.pythonPath, cmdArgs, string(output), err)
+	}
+	
+	return output, err
 }
 
 // GetDaemonStatus returns current daemon status
@@ -277,14 +300,43 @@ func (s *Server) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 
 // broadcastStatus sends status updates to all connected clients
 func (s *Server) broadcastStatus() {
-	output, err := s.runPythonCommand("status", "--json")
+	output, err := s.runPythonCommand("status")
+
+	// Create JSON response
+	status := DaemonStatus{
+		Running:    false,
+		State:      "STOPPED",
+		Uptime:     0,
+		Failsafe:   0,
+		LastUpdate: time.Now(),
+		SystemMetrics: Metrics{
+			CPU:         0,
+			DiskRead:    0,
+			DiskWrite:   0,
+			NetDownload: 0,
+			NetUpload:   0,
+			Processes:   0,
+		},
+	}
+
+	// If command succeeded, daemon is running
+	if err == nil && len(output) > 0 {
+		outputStr := string(output)
+		if !strings.Contains(outputStr, "not running") {
+			status.Running = true
+			status.State = "ACTIVE"
+		}
+	}
+
+	// Convert to JSON
+	jsonData, err := json.Marshal(status)
 	if err != nil {
-		log.Printf("Failed to get status: %v", err)
+		log.Printf("Failed to marshal status: %v", err)
 		return
 	}
 
 	for client := range s.clients {
-		if err := client.WriteMessage(websocket.TextMessage, output); err != nil {
+		if err := client.WriteMessage(websocket.TextMessage, jsonData); err != nil {
 			log.Printf("WebSocket write error: %v", err)
 			client.Close()
 			delete(s.clients, client)
@@ -311,13 +363,13 @@ func main() {
 
 	// API routes
 	api := router.PathPrefix("/api").Subrouter()
-	api.HandleFunc("/status", server.GetDaemonStatus).Methods("GET")
-	api.HandleFunc("/activity", server.GetActivityLogs).Methods("GET")
-	api.HandleFunc("/config", server.GetConfig).Methods("GET")
-	api.HandleFunc("/config", server.UpdateConfig).Methods("POST")
-	api.HandleFunc("/daemon/start", server.DaemonStart).Methods("POST")
-	api.HandleFunc("/daemon/stop", server.DaemonStop).Methods("POST")
-	api.HandleFunc("/daemon/restart", server.DaemonRestart).Methods("POST")
+	api.HandleFunc("/status", server.GetDaemonStatus).Methods("GET", "OPTIONS")
+	api.HandleFunc("/activity", server.GetActivityLogs).Methods("GET", "OPTIONS")
+	api.HandleFunc("/config", server.GetConfig).Methods("GET", "OPTIONS")
+	api.HandleFunc("/config", server.UpdateConfig).Methods("POST", "OPTIONS")
+	api.HandleFunc("/daemon/start", server.DaemonStart).Methods("POST", "OPTIONS")
+	api.HandleFunc("/daemon/stop", server.DaemonStop).Methods("POST", "OPTIONS")
+	api.HandleFunc("/daemon/restart", server.DaemonRestart).Methods("POST", "OPTIONS")
 	api.HandleFunc("/ws", server.WebSocketHandler)
 
 	// CORS middleware
