@@ -38,6 +38,9 @@ def start_daemon(
     Returns:
         Exit code (0 = success)
     """
+    # Convert to absolute path
+    config_path = str(Path(config_path).resolve())
+    
     pid_file = PIDFile()
     
     # Check if already running
@@ -60,13 +63,17 @@ def start_daemon(
         try:
             with pid_file:  # Automatically creates and removes PID file
                 daemon = SenthiumDaemon(config_path=config_path)
+                print(f"[DEBUG] Daemon object created, starting main loop...")
                 daemon.run()
             return 0
         except KeyboardInterrupt:
             print("\n[WARN] Interrupted by user")
             return 0
         except Exception as e:
+            print(f"💥 ERROR: {e}")
             logger.exception(f"Daemon failed: {e}")
+            import traceback
+            traceback.print_exc()
             return 1
     
     else:

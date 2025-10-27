@@ -432,8 +432,10 @@ class SenthiumDaemon:
         Continuously monitors system state and manages power assertions
         based on rule evaluation.
         """
+        print("[DEBUG] Setting up signal handlers...")
         self._setup_signal_handlers()
         self._running = True
+        print("[DEBUG] Transitioning to MONITORING state...")
         self._transition_state(DaemonState.MONITORING)
         
         self.logger.info("=" * 70)
@@ -442,6 +444,7 @@ class SenthiumDaemon:
         self.logger.info("Monitoring system for critical tasks...")
         self.logger.info("Press Ctrl+C to stop")
         
+        print("[DEBUG] Entering main loop...")
         try:
             while self._running and not self._shutdown_requested:
                 self.stats['poll_count'] += 1
