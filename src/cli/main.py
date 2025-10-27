@@ -8,6 +8,21 @@ providing both daemon management and wrapper functionality.
 import sys
 import argparse
 import logging
+import os
+
+# Fix Windows console encoding for emojis
+if sys.platform.startswith('win'):
+    try:
+        # Set console to UTF-8 mode
+        os.system('chcp 65001 >nul 2>&1')
+        # Also set stdout encoding
+        import io
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8')
+        else:
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    except:
+        pass  # Fall back to default encoding if this fails
 
 # Setup basic logging for CLI
 logging.basicConfig(
@@ -397,9 +412,14 @@ def main() -> int:
             from src.vision.security_manager import SecurityManager
             from src.rules.schema import ConfigSchema
             
-            print("=" * 60)
-            print("  📸 Senthium Security Enrollment")
-            print("=" * 60)
+            try:
+                print("=" * 60)
+                print("  📸 Senthium Security Enrollment")
+                print("=" * 60)
+            except UnicodeEncodeError:
+                print("=" * 60)
+                print("  Senthium Security Enrollment")
+                print("=" * 60)
             print()
             
             # Load config to get settings
@@ -425,15 +445,24 @@ def main() -> int:
                 for i in range(3, 0, -1):
                     print(f"  {i}...")
                     time.sleep(1)
-                print("  📸 Smile!")
+                try:
+                    print("  📸 Smile!")
+                except UnicodeEncodeError:
+                    print("  [*] Smile!")
                 success = manager.enroll_owner_from_camera(args.name)
             
             print()
             if success:
-                print(f"  ✅ SUCCESS! {args.name} has been enrolled.")
+                try:
+                    print(f"  ✅ SUCCESS! {args.name} has been enrolled.")
+                except UnicodeEncodeError:
+                    print(f"  [OK] SUCCESS! {args.name} has been enrolled.")
                 print(f"  Security monitoring will now recognize you!")
             else:
-                print(f"  ❌ FAILED! Could not enroll {args.name}.")
+                try:
+                    print(f"  ❌ FAILED! Could not enroll {args.name}.")
+                except UnicodeEncodeError:
+                    print(f"  [ERROR] FAILED! Could not enroll {args.name}.")
                 print(f"  Make sure your face is clearly visible.")
             print("=" * 60)
             
