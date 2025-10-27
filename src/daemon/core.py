@@ -357,8 +357,8 @@ class SenthiumDaemon:
                     'cpu': metrics.cpu_percent,
                     'disk_read': metrics.disk_read_mbps,
                     'disk_write': metrics.disk_write_mbps,
-                    'network_down': metrics.network_recv_mbps,
-                    'network_up': metrics.network_sent_mbps
+                    'network_down': metrics.net_recv_mbps,
+                    'network_up': metrics.net_sent_mbps
                 }
             )
             
