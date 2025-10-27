@@ -52,8 +52,8 @@ def start_daemon(
         print("    Press Ctrl+C to stop")
         
         # Import and run daemon directly
-        from daemon.core import SenthiumDaemon
-        from utils.logger import setup_logger
+        from src.daemon.core import SenthiumDaemon
+        from src.utils.logger import setup_logger
         
         setup_logger('senthium', level=log_level)
         
