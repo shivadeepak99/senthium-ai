@@ -290,6 +290,22 @@ def main() -> int:
         help='Path to image file (or use camera if not specified)'
     )
     
+    # Security management command
+    security_parser = subparsers.add_parser('security', help='Security system management')
+    security_subparsers = security_parser.add_subparsers(dest='security_action', help='Security actions')
+    
+    # Security stats
+    security_subparsers.add_parser('stats', help='Get security system statistics')
+    
+    # Security check
+    security_subparsers.add_parser('check', help='Perform security check now')
+    
+    # Security enable
+    security_subparsers.add_parser('enable', help='Enable security monitoring')
+    
+    # Security disable
+    security_subparsers.add_parser('disable', help='Disable security monitoring')
+    
     # Wrapper mode arguments (when no subcommand)
     parser.add_argument(
         '--stay-awake',
@@ -423,6 +439,93 @@ def main() -> int:
             
             manager.cleanup()
             return 0 if success else 1
+        
+        # Security management commands
+        elif args.command == 'security':
+            import json
+            from src.vision.security_manager import SecurityManager
+            from src.rules.schema import ConfigSchema
+            from pathlib import Path
+            
+            action = args.security_action
+            
+            if action == 'stats':
+                # Get security statistics
+                try:
+                    validator = ConfigSchema()
+                    config_data = validator.load_and_validate(Path('config/config.yaml'))
+                    security_config = config_data.get('senthium', {}).get('security', {})
+                    
+                    manager = SecurityManager(config=security_config)
+                    stats = manager.get_stats()
+                    manager.cleanup()
+                    
+                    # Output as JSON for API consumption
+                    print(json.dumps(stats))
+                    return 0
+                except Exception as e:
+                    print(json.dumps({"error": str(e)}))
+                    return 1
+            
+            elif action == 'check':
+                # Perform immediate security check
+                try:
+                    validator = ConfigSchema()
+                    config_data = validator.load_and_validate(Path('config/config.yaml'))
+                    security_config = config_data.get('senthium', {}).get('security', {})
+                    
+                    manager = SecurityManager(config=security_config)
+                    manager.enable()  # Ensure enabled
+                    result = manager.perform_security_check()
+                    manager.cleanup()
+                    
+                    print(json.dumps(result or {"error": "Security check failed"}))
+                    return 0 if result else 1
+                except Exception as e:
+                    print(json.dumps({"error": str(e)}))
+                    return 1
+            
+            elif action == 'enable':
+                # Enable security in config
+                import yaml
+                try:
+                    config_path = Path('config/config.yaml')
+                    with open(config_path, 'r') as f:
+                        config = yaml.safe_load(f)
+                    
+                    config['senthium']['security']['enabled'] = True
+                    
+                    with open(config_path, 'w') as f:
+                        yaml.dump(config, f, default_flow_style=False)
+                    
+                    print(json.dumps({"status": "success", "message": "Security enabled"}))
+                    return 0
+                except Exception as e:
+                    print(json.dumps({"error": str(e)}))
+                    return 1
+            
+            elif action == 'disable':
+                # Disable security in config
+                import yaml
+                try:
+                    config_path = Path('config/config.yaml')
+                    with open(config_path, 'r') as f:
+                        config = yaml.safe_load(f)
+                    
+                    config['senthium']['security']['enabled'] = False
+                    
+                    with open(config_path, 'w') as f:
+                        yaml.dump(config, f, default_flow_style=False)
+                    
+                    print(json.dumps({"status": "success", "message": "Security disabled"}))
+                    return 0
+                except Exception as e:
+                    print(json.dumps({"error": str(e)}))
+                    return 1
+            
+            else:
+                print(json.dumps({"error": f"Unknown security action: {action}"}))
+                return 1
         
         # Wrapper mode (explicit stay-awake)
         elif args.stay_awake:
