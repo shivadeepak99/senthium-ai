@@ -10,6 +10,6 @@ echo.
 echo Press Ctrl+C to stop
 echo.
 
-streamlit run streamlit_app.py
+venv\Scripts\python.exe -m streamlit run streamlit_app.py
 
 pause
