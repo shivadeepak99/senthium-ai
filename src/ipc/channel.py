@@ -17,19 +17,25 @@ import time
 from typing import Dict, Any, Optional
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 # Platform detection
 IS_WINDOWS = platform.system() == "Windows"
+
+# Initialize Windows-specific imports
+win32pipe = None
+win32file = None
+pywintypes = None
 
 if IS_WINDOWS:
     try:
         import win32pipe  # type: ignore
         import win32file  # type: ignore
         import pywintypes  # type: ignore
-    except ImportError:
-        # Windows-only dependencies - will fail on Linux/macOS
-        pass
-
-logger = logging.getLogger(__name__)
+    except ImportError as e:
+        # Windows-only dependencies - will fail on Linux/macOS or if pywin32 not installed
+        logger.warning(f"Failed to import Windows-specific modules: {e}")
+        logger.warning("Install pywin32 for IPC support: pip install pywin32")
 
 
 class IPCMessage:
