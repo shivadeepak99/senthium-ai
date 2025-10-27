@@ -30,8 +30,8 @@ except ImportError:
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from daemon.core import SenthiumDaemon
-from utils.logger import setup_logger
+from src.daemon.core import SenthiumDaemon
+from src.utils.logger import setup_logger
 
 
 class SenthiumWindowsService(win32serviceutil.ServiceFramework):

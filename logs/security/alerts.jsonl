@@ -1,0 +1,1 @@
+{"timestamp": "2025-10-27T17:12:43.333054", "alert_type": "unauthorized_access", "message": "\u26a0\ufe0f UNAUTHORIZED ACCESS DETECTED! 1 unknown face(s) detected.", "confidence": null, "snapshot_path": "logs\\security\\snapshots\\security_20251027_171244.jpg", "detected_faces_count": 1}

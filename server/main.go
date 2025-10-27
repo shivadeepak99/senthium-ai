@@ -383,17 +383,17 @@ func (s *Server) startStatusBroadcaster() {
 func (s *Server) GetSecurityStats(w http.ResponseWriter, r *http.Request) {
 	// Run Python script to get security stats
 	output, err := s.runPythonCommand("security", "stats")
-	
+
 	// Default response
 	stats := map[string]interface{}{
-		"enabled":                  false,
-		"total_checks":             0,
-		"unauthorized_detections":  0,
-		"authorized_users":         []string{},
-		"last_check_time":          nil,
-		"camera_status":            "unknown",
+		"enabled":                 false,
+		"total_checks":            0,
+		"unauthorized_detections": 0,
+		"authorized_users":        []string{},
+		"last_check_time":         nil,
+		"camera_status":           "unknown",
 	}
-	
+
 	// Parse output if available
 	if err == nil && len(output) > 0 {
 		// Try to parse JSON output
@@ -401,7 +401,7 @@ func (s *Server) GetSecurityStats(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Failed to parse security stats: %v", jsonErr)
 		}
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
 }
@@ -412,10 +412,10 @@ func (s *Server) GetSecurityAlerts(w http.ResponseWriter, r *http.Request) {
 	if limit == "" {
 		limit = "20"
 	}
-	
+
 	// Read security alerts from JSONL log
 	var alerts []map[string]interface{}
-	
+
 	filename := "logs/security/alerts.jsonl"
 	file, err := os.Open(filename)
 	if err != nil {
@@ -425,7 +425,7 @@ func (s *Server) GetSecurityAlerts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
-	
+
 	// Read all lines
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -435,20 +435,20 @@ func (s *Server) GetSecurityAlerts(w http.ResponseWriter, r *http.Request) {
 		}
 		alerts = append(alerts, alert)
 	}
-	
+
 	// Return most recent alerts (reverse order)
 	numLimit := 20
 	fmt.Sscanf(limit, "%d", &numLimit)
-	
+
 	if len(alerts) > numLimit {
 		alerts = alerts[len(alerts)-numLimit:]
 	}
-	
+
 	// Reverse for newest first
 	for i, j := 0, len(alerts)-1; i < j; i, j = i+1, j-1 {
 		alerts[i], alerts[j] = alerts[j], alerts[i]
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(alerts)
 }
@@ -461,13 +461,13 @@ func (s *Server) EnrollUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to parse form", http.StatusBadRequest)
 		return
 	}
-	
+
 	name := r.FormValue("name")
 	if name == "" {
 		http.Error(w, "Name is required", http.StatusBadRequest)
 		return
 	}
-	
+
 	// Get uploaded file
 	file, handler, err := r.FormFile("image")
 	if err != nil {
@@ -475,7 +475,7 @@ func (s *Server) EnrollUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
-	
+
 	// Save to temp file
 	tempPath := filepath.Join(os.TempDir(), handler.Filename)
 	outFile, err := os.Create(tempPath)
@@ -485,22 +485,22 @@ func (s *Server) EnrollUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer outFile.Close()
 	defer os.Remove(tempPath)
-	
+
 	// Copy file data
 	if _, err := outFile.ReadFrom(file); err != nil {
 		http.Error(w, "Failed to save image", http.StatusInternalServerError)
 		return
 	}
 	outFile.Close()
-	
+
 	// Run enrollment command
 	output, err := s.runPythonCommand("enroll", "--name", name, "--image", tempPath)
-	
+
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Enrollment failed: %s", string(output)), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":  "success",
@@ -512,12 +512,12 @@ func (s *Server) EnrollUser(w http.ResponseWriter, r *http.Request) {
 func (s *Server) PerformSecurityCheck(w http.ResponseWriter, r *http.Request) {
 	// Run security check via Python
 	output, err := s.runPythonCommand("security", "check")
-	
+
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Security check failed: %s", string(output)), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":  "success",
@@ -528,12 +528,12 @@ func (s *Server) PerformSecurityCheck(w http.ResponseWriter, r *http.Request) {
 // EnableSecurity enables security monitoring
 func (s *Server) EnableSecurity(w http.ResponseWriter, r *http.Request) {
 	output, err := s.runPythonCommand("security", "enable")
-	
+
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to enable security: %s", string(output)), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":  "success",
@@ -544,12 +544,12 @@ func (s *Server) EnableSecurity(w http.ResponseWriter, r *http.Request) {
 // DisableSecurity disables security monitoring
 func (s *Server) DisableSecurity(w http.ResponseWriter, r *http.Request) {
 	output, err := s.runPythonCommand("security", "disable")
-	
+
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to disable security: %s", string(output)), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":  "success",
@@ -561,38 +561,38 @@ func (s *Server) DisableSecurity(w http.ResponseWriter, r *http.Request) {
 func (s *Server) GetLatestSnapshot(w http.ResponseWriter, r *http.Request) {
 	// Find latest snapshot in logs/security/snapshots/
 	snapshotsDir := "logs/security/snapshots"
-	
+
 	files, err := os.ReadDir(snapshotsDir)
 	if err != nil {
 		http.Error(w, "No snapshots found", http.StatusNotFound)
 		return
 	}
-	
+
 	// Find most recent file
 	var latestFile string
 	var latestTime time.Time
-	
+
 	for _, file := range files {
 		if file.IsDir() {
 			continue
 		}
-		
+
 		info, err := file.Info()
 		if err != nil {
 			continue
 		}
-		
+
 		if info.ModTime().After(latestTime) {
 			latestTime = info.ModTime()
 			latestFile = filepath.Join(snapshotsDir, file.Name())
 		}
 	}
-	
+
 	if latestFile == "" {
 		http.Error(w, "No snapshots found", http.StatusNotFound)
 		return
 	}
-	
+
 	// Serve the image file
 	http.ServeFile(w, r, latestFile)
 }
@@ -611,7 +611,7 @@ func main() {
 	api.HandleFunc("/daemon/start", server.DaemonStart).Methods("POST", "OPTIONS")
 	api.HandleFunc("/daemon/stop", server.DaemonStop).Methods("POST", "OPTIONS")
 	api.HandleFunc("/daemon/restart", server.DaemonRestart).Methods("POST", "OPTIONS")
-	
+
 	// Security API routes
 	api.HandleFunc("/security/stats", server.GetSecurityStats).Methods("GET", "OPTIONS")
 	api.HandleFunc("/security/alerts", server.GetSecurityAlerts).Methods("GET", "OPTIONS")
@@ -620,7 +620,7 @@ func main() {
 	api.HandleFunc("/security/enable", server.EnableSecurity).Methods("POST", "OPTIONS")
 	api.HandleFunc("/security/disable", server.DisableSecurity).Methods("POST", "OPTIONS")
 	api.HandleFunc("/security/snapshot", server.GetLatestSnapshot).Methods("GET", "OPTIONS")
-	
+
 	api.HandleFunc("/ws", server.WebSocketHandler)
 
 	// CORS middleware

@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from daemon.monitor import SystemMetrics
-from rules.schema import ConfigSchema, ConfigValidationError
+from src.daemon.monitor import SystemMetrics
+from src.rules.schema import ConfigSchema, ConfigValidationError
 
 
 @dataclass

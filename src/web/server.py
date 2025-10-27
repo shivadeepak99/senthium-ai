@@ -20,9 +20,9 @@ from flask_cors import CORS  # type: ignore
 from flask_socketio import SocketIO, emit  # type: ignore
 import eventlet  # type: ignore
 
-from ipc.channel import IPCClient
-from utils.activity_log import ActivityLogger
-from rules.schema import ConfigSchema
+from src.ipc.channel import IPCClient
+from src.utils.activity_log import ActivityLogger
+from src.rules.schema import ConfigSchema
 
 # Patch for eventlet
 eventlet.monkey_patch()
