@@ -8,6 +8,7 @@ import logging
 import json
 import requests
 import smtplib
+import platform
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List
@@ -17,6 +18,32 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 
+# Optional imports for additional alert methods
+try:
+    if platform.system() == 'Windows':
+        import winsound  # Built-in for Windows
+        try:
+            from win10toast import ToastNotifier  # pip install win10toast
+            WINDOWS_TOAST_AVAILABLE = True
+        except ImportError:
+            WINDOWS_TOAST_AVAILABLE = False
+    else:
+        try:
+            from plyer import notification  # pip install plyer (cross-platform)
+            PLYER_AVAILABLE = True
+        except ImportError:
+            PLYER_AVAILABLE = False
+    DESKTOP_NOTIFICATIONS_AVAILABLE = True
+except ImportError:
+    DESKTOP_NOTIFICATIONS_AVAILABLE = False
+    WINDOWS_TOAST_AVAILABLE = False
+    PLYER_AVAILABLE = False
+
+try:
+    from playsound import playsound  # pip install playsound (cross-platform sound)
+    PLAYSOUND_AVAILABLE = True
+except ImportError:
+    PLAYSOUND_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +79,12 @@ class AlertNotifier:
     Sends security alerts through multiple channels.
     
     Can send via:
-    - Discord webhook (instant, easy setup)
-    - Email (SMTP)
-    - Telegram bot (future)
-    - Logs file (always enabled)
+    - Discord webhook (instant, easy setup) 🟦
+    - Email (SMTP) 📧
+    - Telegram bot (0-cost mobile push) 💙
+    - Desktop notifications (Windows/Linux/Mac) 🔔
+    - Sound alarms (beep/custom sound) 🔊
+    - Logs file (always enabled) 📝
     """
     
     def __init__(
@@ -99,7 +128,7 @@ class AlertNotifier:
             True if at least one channel succeeded
         """
         if channels is None:
-            channels = ['log', 'discord', 'email']  # Default: try all
+            channels = ['log', 'discord', 'email', 'telegram', 'desktop', 'sound']  # Default: try all
         
         self.alert_count += 1
         self.last_alert_time = datetime.now()
@@ -119,6 +148,21 @@ class AlertNotifier:
         # Email
         if 'email' in channels and self.config.get('email_smtp_host'):
             if self._send_email(alert):
+                success = True
+        
+        # Telegram bot
+        if 'telegram' in channels and self.config.get('telegram_bot_token'):
+            if self._send_telegram(alert):
+                success = True
+        
+        # Desktop notification
+        if 'desktop' in channels:
+            if self._send_desktop_notification(alert):
+                success = True
+        
+        # Sound alarm (for critical alerts only)
+        if 'sound' in channels and alert.alert_type in [AlertType.UNAUTHORIZED_ACCESS, AlertType.MULTIPLE_UNKNOWN_FACES]:
+            if self._play_sound_alarm(alert):
                 success = True
         
         return success
@@ -246,6 +290,158 @@ This is an automated alert from Senthium AI Security System.
             logger.error(f"❌ Email alert failed: {e}")
             return False
     
+    def _send_telegram(self, alert: SecurityAlert) -> bool:
+        """
+        Send alert via Telegram bot.
+        
+        Requires:
+            - telegram_bot_token in config
+            - telegram_chat_id in config
+        
+        Set up:
+            1. Create bot with @BotFather on Telegram
+            2. Get bot token
+            3. Start chat with your bot
+            4. Get chat ID from https://api.telegram.org/bot<TOKEN>/getUpdates
+        """
+        try:
+            bot_token = self.config.get('telegram_bot_token')
+            chat_id = self.config.get('telegram_chat_id')
+            
+            if not bot_token or not chat_id:
+                logger.debug("⚠️ Telegram not configured, skipping")
+                return False
+            
+            # Build message with emoji and formatting
+            emoji_map = {
+                AlertType.UNAUTHORIZED_ACCESS: "🚨",
+                AlertType.MULTIPLE_UNKNOWN_FACES: "⚠️",
+                AlertType.OWNER_DETECTED: "✅",
+                AlertType.CAMERA_ERROR: "📷",
+                AlertType.SYSTEM_WARNING: "⚠️",
+            }
+            emoji = emoji_map.get(alert.alert_type, "🔔")
+            
+            message = f"{emoji} *Senthium Security Alert*\n\n"
+            message += f"*Type:* {alert.alert_type.value.replace('_', ' ').title()}\n"
+            message += f"*Time:* {alert.timestamp}\n"
+            message += f"*Message:* {alert.message}\n\n"
+            
+            if alert.detected_faces_count > 0:
+                message += f"*Faces:* {alert.detected_faces_count}\n"
+            if alert.confidence is not None:
+                message += f"*Confidence:* {alert.confidence:.1%}\n"
+            
+            # Send via Telegram Bot API
+            url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+            payload = {
+                'chat_id': chat_id,
+                'text': message,
+                'parse_mode': 'Markdown'
+            }
+            
+            response = requests.post(url, json=payload, timeout=10)
+            response.raise_for_status()
+            
+            # If there's a snapshot, send it too
+            if alert.snapshot_path and Path(alert.snapshot_path).exists():
+                photo_url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+                with open(alert.snapshot_path, 'rb') as photo:
+                    files = {'photo': photo}
+                    data = {'chat_id': chat_id, 'caption': f"{emoji} Snapshot"}
+                    requests.post(photo_url, files=files, data=data, timeout=10)
+            
+            logger.info("✅ Alert sent via Telegram")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Telegram alert failed: {e}")
+            return False
+    
+    def _send_desktop_notification(self, alert: SecurityAlert) -> bool:
+        """
+        Send desktop notification (Windows toast or cross-platform).
+        
+        Windows: Uses win10toast (native Windows 10+ notifications)
+        Linux/Mac: Uses plyer (cross-platform notification library)
+        """
+        try:
+            if not DESKTOP_NOTIFICATIONS_AVAILABLE:
+                logger.debug("⚠️ Desktop notifications not available (install win10toast or plyer)")
+                return False
+            
+            title = f"🚨 Senthium: {alert.alert_type.value.replace('_', ' ').title()}"
+            message = alert.message[:256]  # Limit message length
+            
+            if platform.system() == 'Windows' and WINDOWS_TOAST_AVAILABLE:
+                # Windows 10+ native notifications
+                toaster = ToastNotifier()
+                toaster.show_toast(
+                    title=title,
+                    msg=message,
+                    duration=10,  # seconds
+                    icon_path=None,  # Can add custom icon later
+                    threaded=True  # Don't block
+                )
+                logger.info("✅ Desktop notification sent (Windows)")
+                return True
+                
+            elif PLYER_AVAILABLE:
+                # Cross-platform notifications
+                notification.notify(
+                    title=title,
+                    message=message,
+                    timeout=10  # seconds
+                )
+                logger.info("✅ Desktop notification sent (Plyer)")
+                return True
+            
+            else:
+                logger.debug("⚠️ No desktop notification library available")
+                return False
+            
+        except Exception as e:
+            logger.error(f"❌ Desktop notification failed: {e}")
+            return False
+    
+    def _play_sound_alarm(self, alert: SecurityAlert) -> bool:
+        """
+        Play sound alarm for critical alerts.
+        
+        Windows: Uses built-in winsound (beep)
+        Others: Uses playsound library if available
+        
+        Note: Only plays for UNAUTHORIZED_ACCESS and MULTIPLE_UNKNOWN_FACES
+        """
+        try:
+            if platform.system() == 'Windows':
+                # Windows built-in beep (frequency, duration_ms)
+                # Play ascending alarm sound
+                winsound.Beep(1000, 200)  # 1000 Hz, 200ms
+                winsound.Beep(1500, 200)  # 1500 Hz, 200ms
+                winsound.Beep(2000, 300)  # 2000 Hz, 300ms
+                logger.info("✅ Sound alarm played (Windows beep)")
+                return True
+                
+            elif PLAYSOUND_AVAILABLE:
+                # Try to play a custom alarm sound file if it exists
+                alarm_sound = Path("assets/sounds/alarm.mp3")
+                if alarm_sound.exists():
+                    playsound(str(alarm_sound), block=False)
+                    logger.info("✅ Sound alarm played (custom sound)")
+                    return True
+                else:
+                    logger.debug("⚠️ Custom alarm sound not found")
+                    return False
+            
+            else:
+                logger.debug("⚠️ Sound playback not available")
+                return False
+            
+        except Exception as e:
+            logger.error(f"❌ Sound alarm failed: {e}")
+            return False
+    
     def should_send_alert(self, cooldown_seconds: int = 300) -> bool:
         """
         Check if enough time has passed since last alert (prevents spam).
@@ -291,12 +487,22 @@ This is an automated alert from Senthium AI Security System.
     
     def get_stats(self) -> dict:
         """Get alert statistics."""
+        configured_channels = []
+        
+        if self.config.get('discord_webhook_url'):
+            configured_channels.append('discord')
+        if self.config.get('email_smtp_host'):
+            configured_channels.append('email')
+        if self.config.get('telegram_bot_token'):
+            configured_channels.append('telegram')
+        if DESKTOP_NOTIFICATIONS_AVAILABLE:
+            configured_channels.append('desktop')
+        if platform.system() == 'Windows' or PLAYSOUND_AVAILABLE:
+            configured_channels.append('sound')
+        configured_channels.append('log')  # Always available
+        
         return {
             "total_alerts_sent": self.alert_count,
             "last_alert_time": self.last_alert_time.isoformat() if self.last_alert_time else None,
-            "configured_channels": [
-                'discord' if self.config.get('discord_webhook_url') else None,
-                'email' if self.config.get('email_smtp_host') else None,
-                'log'
-            ]
+            "configured_channels": configured_channels
         }

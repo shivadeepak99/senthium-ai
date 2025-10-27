@@ -54,6 +54,12 @@ senthium:
       email_from: ""  # Your email address
       email_to: ""  # Destination email
       email_password: ""  # App password or SMTP password
+      
+      # Telegram bot (0-cost mobile push notifications!)
+      # Setup: Talk to @BotFather on Telegram to create a bot
+      # Then get your chat_id from: https://api.telegram.org/bot<TOKEN>/getUpdates
+      telegram_bot_token: ""  # Bot token from @BotFather
+      telegram_chat_id: ""  # Your Telegram chat ID
   
   # ==========================================
   # Rules
