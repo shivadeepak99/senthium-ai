@@ -378,8 +378,8 @@ def main() -> int:
         
         # Enrollment command
         elif args.command == 'enroll':
-            from vision.security_manager import SecurityManager
-            from rules.schema import ConfigValidator
+            from src.vision.security_manager import SecurityManager
+            from src.rules.schema import ConfigSchema
             
             print("=" * 60)
             print("  📸 Senthium Security Enrollment")
@@ -388,7 +388,7 @@ def main() -> int:
             
             # Load config to get settings
             try:
-                validator = ConfigValidator()
+                validator = ConfigSchema()
                 config_data = validator.load_and_validate('config/config.yaml')
                 security_config = config_data.get('senthium', {}).get('security', {})
             except:

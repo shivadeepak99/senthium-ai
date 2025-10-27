@@ -10,10 +10,10 @@ from datetime import datetime
 from typing import Optional, Dict, List
 from pathlib import Path
 
-from vision.camera import CameraMonitor
-from vision.detector import FaceDetector
-from vision.recognizer import FaceRecognizer
-from alerts.notifier import AlertNotifier, SecurityAlert, AlertType
+from src.vision.camera import CameraMonitor
+from src.vision.detector import FaceDetector
+from src.vision.recognizer import FaceRecognizer
+from src.alerts.notifier import AlertNotifier, SecurityAlert, AlertType
 
 
 logger = logging.getLogger(__name__)
