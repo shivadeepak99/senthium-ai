@@ -336,7 +336,7 @@ def main() -> int:
     try:
         # Daemon management commands
         if args.command == 'start':
-            from daemon.control import start_daemon
+            from src.daemon.control import start_daemon
             return start_daemon(
                 config_path=args.config,
                 log_level=args.log_level,
@@ -344,18 +344,18 @@ def main() -> int:
             )
         
         elif args.command == 'stop':
-            from daemon.control import stop_daemon
+            from src.daemon.control import stop_daemon
             return stop_daemon(force=args.force, timeout=args.timeout)
         
         elif args.command == 'restart':
-            from daemon.control import restart_daemon
+            from src.daemon.control import restart_daemon
             return restart_daemon(
                 config_path=args.config,
                 log_level=args.log_level
             )
         
         elif args.command == 'status':
-            from daemon.control import daemon_status
+            from src.daemon.control import daemon_status
             return daemon_status(verbose=args.verbose)
         
         # Service commands
