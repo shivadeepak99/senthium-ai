@@ -442,9 +442,11 @@ class SenthiumDaemon:
         self.logger.info("🚀 Senthium Daemon Started!")
         self.logger.info("=" * 70)
         self.logger.info("Monitoring system for critical tasks...")
-        self.logger.info("Press Ctrl+C to stop")
+        self.logger.info(f"Poll interval: {self.poll_interval}s")
+        self.logger.info("Press Ctrl+C to stop (may take up to 1 second to respond)")
         
         print("[DEBUG] Entering main loop...")
+        print("[DEBUG] Daemon is now monitoring... (Ctrl+C to stop)")
         try:
             while self._running and not self._shutdown_requested:
                 self.stats['poll_count'] += 1
@@ -509,9 +511,16 @@ class SenthiumDaemon:
                         self.power_manager.release_awake()
                         self.failsafe.reset()
                 
-                # Sleep until next poll
-                time.sleep(self.poll_interval)
+                # Sleep until next poll (use smaller intervals for better Ctrl+C responsiveness on Windows)
+                remaining_sleep = self.poll_interval
+                while remaining_sleep > 0 and not self._shutdown_requested:
+                    sleep_chunk = min(0.5, remaining_sleep)  # Sleep in 0.5s chunks
+                    time.sleep(sleep_chunk)
+                    remaining_sleep -= sleep_chunk
         
+        except KeyboardInterrupt:
+            self.logger.info("⌨️  Keyboard interrupt (Ctrl+C) detected")
+            self._shutdown_requested = True
         except Exception as e:
             self.logger.exception(f"💥 Fatal error in main loop: {e}")
             raise
