@@ -24,17 +24,12 @@ class FaceDetector:
     PROTOTXT_URL = "https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt"
     WEIGHTS_URL = "https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel"
     
-    def __init__(
-        self, 
-        confidence_threshold: float = 0.5,
-        model: str = 'dnn'  # For compatibility with old API (hog/cnn), ignored here
-    ):
+    def __init__(self, confidence_threshold: float = 0.5):
         """
         Initialize face detector.
         
         Args:
             confidence_threshold: Minimum confidence for detection (0.0-1.0)
-            model: Ignored (for compatibility with face_recognition API)
         """
         self.confidence_threshold = confidence_threshold
         self.detection_count = 0
@@ -201,15 +196,13 @@ class FaceDetector:
     
     def detect_and_encode(
         self,
-        image: np.ndarray,
-        num_jitters: int = 1  # For compatibility with old face_recognition API (ignored in OpenCV)
+        image: np.ndarray
     ) -> List[Tuple[Tuple[int, int, int, int], np.ndarray]]:
         """
         One-shot: detect faces AND extract encodings.
         
         Args:
             image: BGR image from OpenCV
-            num_jitters: Ignored (for compatibility with face_recognition API)
         
         Returns:
             List of (face_location, face_encoding) tuples

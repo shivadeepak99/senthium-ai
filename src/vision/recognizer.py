@@ -4,7 +4,6 @@ Face Recognizer - Matches detected faces against authorized users
 This is your AI security guard babe! Knows friend from foe! 🛡️
 """
 
-import face_recognition
 import logging
 import numpy as np
 import json
@@ -162,8 +161,8 @@ class FaceRecognizer:
         # Compare against all authorized faces
         for user_name, user_encodings in self.authorized_encodings.items():
             for known_encoding in user_encodings:
-                # Calculate face distance (lower = more similar)
-                distance = face_recognition.face_distance([known_encoding], face_encoding)[0]
+                # Calculate face distance (lower = more similar) - Euclidean distance
+                distance = np.linalg.norm(known_encoding - face_encoding)
                 
                 if distance < best_match_distance:
                     best_match_distance = distance

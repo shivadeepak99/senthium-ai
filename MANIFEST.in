@@ -1,0 +1,21 @@
+# Include important files in the package
+include README.md
+include LICENSE
+include requirements.txt
+include config/*.yaml
+include config/*.json
+
+# Include model files
+recursive-include models *.prototxt *.caffemodel
+
+# Exclude unwanted files
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude __pycache__
+global-exclude .DS_Store
+global-exclude *.log
+
+# Exclude test and temporary files
+prune tests
+prune logs
+prune temp*

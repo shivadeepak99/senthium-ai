@@ -11,14 +11,15 @@ from pathlib import Path
 from PIL import Image
 import json
 from datetime import datetime
-import subprocess
 import os
+import time
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.vision.security_manager import SecurityManager
 from src.rules.schema import ConfigSchema
+from src.daemon.control import start_daemon, stop_daemon
 
 # Page config
 st.set_page_config(
@@ -244,41 +245,24 @@ elif page == "👤 Face Enrollment":
                                 f.write(uploaded_file.getbuffer())
                             st.write(f"✅ **DEBUG:** Saved temp file: {temp_path}")
                             
-                            # Build command
-                            cmd = [sys.executable, "-m", "src.cli.main", "enroll", "--name", name, "--image", str(temp_path)]
-                            st.write(f"🔧 **DEBUG:** Running command: `{' '.join(cmd)}`")
+                            # Direct function call - no subprocess! 💪
+                            st.write(f"🔧 **DEBUG:** Enrolling {name} directly via security_manager...")
                             
-                            # Call enrollment via CLI
-                            result = subprocess.run(
-                                cmd,
-                                capture_output=True,
-                                text=True,
-                                cwd=Path(__file__).parent,
-                                encoding='utf-8',
-                                errors='replace'
+                            success = st.session_state.security_manager.enroll_owner_from_file(
+                                image_path=str(temp_path),
+                                user_name=name
                             )
-                            
-                            st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
                             
                             # Clean up
                             temp_path.unlink(missing_ok=True)
                             st.write("🧹 **DEBUG:** Cleaned up temp file")
                             
-                            if result.returncode == 0:
+                            if success:
                                 st.success(f"✅ Successfully enrolled {name}!")
-                                if result.stdout:
-                                    st.info("**Output:**")
-                                    st.code(result.stdout, language="text")
                                 st.balloons()
                                 st.rerun()
                             else:
-                                st.error(f"❌ Enrollment failed")
-                                if result.stderr:
-                                    st.error("**Error Output:**")
-                                    st.code(result.stderr, language="text")
-                                if result.stdout:
-                                    st.info("**Standard Output:**")
-                                    st.code(result.stdout, language="text")
+                                st.error(f"❌ Enrollment failed - check logs for details")
                         
                         except Exception as e:
                             st.error(f"💥 **Exception:** {e}")
@@ -320,51 +304,27 @@ elif page == "🔍 Security Check":
                 try:
                     st.write("🔍 **DEBUG:** Starting security check...")
                     
-                    # Build command
-                    cmd = [sys.executable, "-m", "src.cli.main", "security", "check"]
-                    st.write(f"🔧 **DEBUG:** Running command: `{' '.join(cmd)}`")
+                    # Direct function call - no subprocess! 🎯
+                    check_result = st.session_state.security_manager.perform_security_check()
                     
-                    # Call security check via CLI
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        cwd=Path(__file__).parent,
-                        encoding='utf-8',
-                        errors='replace'
-                    )
-                    
-                    st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
-                    
-                    if result.returncode == 0:
-                        # Parse JSON result
-                        try:
-                            check_result = json.loads(result.stdout)
-                            
-                            st.success("✅ Security check completed!")
-                            
-                            # Display results
-                            st.json(check_result)
-                            
-                            # Show warning if threats detected
-                            if check_result.get('unknown_faces_count', 0) > 0:
-                                st.error(f"⚠️ WARNING: {check_result['unknown_faces_count']} unauthorized face(s) detected!")
-                            elif check_result.get('detected_faces_count', 0) > 0:
-                                st.success(f"✅ All detected faces are authorized!")
-                            else:
-                                st.info("ℹ️ No faces detected in this check")
-                        except json.JSONDecodeError:
-                            st.warning("Check completed but output was not JSON")
-                            st.code(result.stdout, language="text")
-                    
+                    if check_result:
+                        st.success("✅ Security check completed!")
+                        
+                        # Display results
+                        st.json(check_result)
+                        
+                        # Show warning if threats detected
+                        unknown_count = check_result.get('unknown_faces_count', 0)
+                        detected_count = check_result.get('detected_faces_count', 0)
+                        
+                        if unknown_count > 0:
+                            st.error(f"⚠️ WARNING: {unknown_count} unauthorized face(s) detected!")
+                        elif detected_count > 0:
+                            st.success(f"✅ All detected faces are authorized!")
+                        else:
+                            st.info("ℹ️ No faces detected in this check")
                     else:
-                        st.error(f"❌ Check failed")
-                        if result.stderr:
-                            st.error("**Error Output:**")
-                            st.code(result.stderr, language="text")
-                        if result.stdout:
-                            st.info("**Standard Output:**")
-                            st.code(result.stdout, language="text")
+                        st.warning("Security is disabled or check returned no data")
                 
                 except Exception as e:
                     st.error(f"💥 **Exception:** {e}")
@@ -409,59 +369,15 @@ elif page == "⚙️ Settings":
             if is_enabled:
                 if st.button("🔴 Disable", key="disable_btn"):
                     st.write("🔍 **DEBUG:** Disabling security...")
-                    cmd = [sys.executable, "-m", "src.cli.main", "security", "disable"]
-                    st.write(f"🔧 **DEBUG:** Running: `{' '.join(cmd)}`")
-                    
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        cwd=Path(__file__).parent,
-                        encoding='utf-8',
-                        errors='replace'
-                    )
-                    
-                    st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
-                    
-                    if result.returncode == 0:
-                        st.success("Security disabled")
-                        if result.stdout:
-                            st.code(result.stdout, language="text")
-                        st.rerun()
-                    else:
-                        st.error("Failed to disable")
-                        if result.stderr:
-                            st.code(result.stderr, language="text")
-                        if result.stdout:
-                            st.code(result.stdout, language="text")
+                    st.session_state.security_manager.disable()
+                    st.success("Security disabled")
+                    st.rerun()
             else:
                 if st.button("🟢 Enable", key="enable_btn"):
                     st.write("🔍 **DEBUG:** Enabling security...")
-                    cmd = [sys.executable, "-m", "src.cli.main", "security", "enable"]
-                    st.write(f"🔧 **DEBUG:** Running: `{' '.join(cmd)}`")
-                    
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        cwd=Path(__file__).parent,
-                        encoding='utf-8',
-                        errors='replace'
-                    )
-                    
-                    st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
-                    
-                    if result.returncode == 0:
-                        st.success("Security enabled")
-                        if result.stdout:
-                            st.code(result.stdout, language="text")
-                        st.rerun()
-                    else:
-                        st.error("Failed to enable")
-                        if result.stderr:
-                            st.code(result.stderr, language="text")
-                        if result.stdout:
-                            st.code(result.stdout, language="text")
+                    st.session_state.security_manager.enable()
+                    st.success("Security enabled")
+                    st.rerun()
     
     except Exception as e:
         st.error(f"Error: {e}")
@@ -508,88 +424,42 @@ elif page == "⚙️ Settings":
         if st.button("▶️ Start Daemon"):
             with st.spinner("Starting daemon..."):
                 st.write("🔍 **DEBUG:** Starting daemon...")
-                cmd = [sys.executable, "-m", "src.cli.main", "start"]
-                st.write(f"🔧 **DEBUG:** Running: `{' '.join(cmd)}`")
-                
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    cwd=Path(__file__).parent,
-                    encoding='utf-8',
-                    errors='replace'
-                )
-                
-                st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
-                
-                if result.returncode == 0:
-                    st.success("✅ Daemon started!")
-                    if result.stdout:
-                        st.code(result.stdout, language="text")
-                else:
-                    st.error("❌ Failed to start")
-                    if result.stderr:
-                        st.code(result.stderr, language="text")
-                    if result.stdout:
-                        st.code(result.stdout, language="text")
+                try:
+                    exit_code = start_daemon()
+                    if exit_code == 0:
+                        st.success("✅ Daemon started!")
+                    else:
+                        st.error("❌ Failed to start daemon")
+                except Exception as e:
+                    st.error(f"❌ Exception: {e}")
     
     with col2:
         if st.button("⏹️ Stop Daemon"):
             with st.spinner("Stopping daemon..."):
                 st.write("🔍 **DEBUG:** Stopping daemon...")
-                cmd = [sys.executable, "-m", "src.cli.main", "stop"]
-                st.write(f"🔧 **DEBUG:** Running: `{' '.join(cmd)}`")
-                
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    cwd=Path(__file__).parent,
-                    encoding='utf-8',
-                    errors='replace'
-                )
-                
-                st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
-                
-                if result.returncode == 0:
-                    st.success("✅ Daemon stopped!")
-                    if result.stdout:
-                        st.code(result.stdout, language="text")
-                else:
-                    st.error("❌ Failed to stop")
-                    if result.stderr:
-                        st.code(result.stderr, language="text")
-                    if result.stdout:
-                        st.code(result.stdout, language="text")
+                try:
+                    exit_code = stop_daemon()
+                    if exit_code == 0:
+                        st.success("✅ Daemon stopped!")
+                    else:
+                        st.error("❌ Failed to stop daemon")
+                except Exception as e:
+                    st.error(f"❌ Exception: {e}")
     
     with col3:
         if st.button("🔄 Restart Daemon"):
             with st.spinner("Restarting daemon..."):
                 st.write("🔍 **DEBUG:** Restarting daemon...")
-                cmd = [sys.executable, "-m", "src.cli.main", "restart"]
-                st.write(f"🔧 **DEBUG:** Running: `{' '.join(cmd)}`")
-                
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    cwd=Path(__file__).parent,
-                    encoding='utf-8',
-                    errors='replace'
-                )
-                
-                st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
-                
-                if result.returncode == 0:
-                    st.success("✅ Daemon restarted!")
-                    if result.stdout:
-                        st.code(result.stdout, language="text")
-                else:
-                    st.error("❌ Failed to restart")
-                    if result.stderr:
-                        st.code(result.stderr, language="text")
-                    if result.stdout:
-                        st.code(result.stdout, language="text")
+                try:
+                    stop_daemon()
+                    time.sleep(1)  # Wait a sec between stop/start
+                    exit_code = start_daemon()
+                    if exit_code == 0:
+                        st.success("✅ Daemon restarted!")
+                    else:
+                        st.error("❌ Failed to restart")
+                except Exception as e:
+                    st.error(f"❌ Exception: {e}")
 
 # Footer
 st.markdown("---")

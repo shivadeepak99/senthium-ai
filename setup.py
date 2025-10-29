@@ -1,6 +1,6 @@
 """
-Senthium - Intelligent Lock & Sleep Manager
-Setup configuration for package installation
+Senthium AI - Face Recognition Security System
+Setup configuration for pip installation
 """
 
 try:
@@ -17,65 +17,60 @@ def read_readme():
     if os.path.exists(readme_path):
         with open(readme_path, 'r', encoding='utf-8') as f:
             return f.read()
-    return "Intelligent, rule-based lock and sleep manager"
+    return "AI-powered face recognition security system with wake-lock protection"
+
+# Read requirements
+def read_requirements():
+    req_path = os.path.join(os.path.dirname(__file__), 'requirements.txt')
+    if os.path.exists(req_path):
+        with open(req_path, 'r', encoding='utf-8') as f:
+            reqs = f.read().splitlines()
+            return [r.strip() for r in reqs if r.strip() and not r.startswith("#")]
+    return []
 
 setup(
-    name='senthium',
-    version='0.1.0',
-    author='Your Name',  # TODO: Update this
-    author_email='your.email@example.com',  # TODO: Update this
-    description='Intelligent, rule-based lock and sleep manager',
+    name='senthium-ai',
+    version='0.6.0',
+    author='Senthium Team',
+    author_email='contact@senthium.ai',
+    description='AI-powered face recognition security system with wake-lock protection',
     long_description=read_readme(),
     long_description_content_type='text/markdown',
-    url='https://github.com/yourusername/senthium',  # TODO: Update this
+    url='https://github.com/yourusername/senthium-ai-modern',
     project_urls={
-        'Bug Reports': 'https://github.com/yourusername/senthium/issues',
-        'Source': 'https://github.com/yourusername/senthium',
+        'Bug Reports': 'https://github.com/yourusername/senthium-ai-modern/issues',
+        'Source': 'https://github.com/yourusername/senthium-ai-modern',
     },
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
-        'Intended Audience :: System Administrators',
-        'Topic :: System :: Power (UPS)',
+        'Intended Audience :: End Users/Desktop',
+        'Topic :: Security',
+        'Topic :: Scientific/Engineering :: Artificial Intelligence',
+        'Topic :: Scientific/Engineering :: Image Recognition',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
-        'Operating System :: POSIX :: Linux',
         'Operating System :: Microsoft :: Windows',
-        'Operating System :: MacOS',
     ],
-    keywords='power-management sleep lock daemon system-utility',
-    packages=find_packages(where='src'),
-    package_dir={'': 'src'},
-    python_requires='>=3.9',
-    install_requires=[
-        'psutil>=5.9.0',
-        'pyyaml>=6.0',
-        'colorlog>=6.7.0',
-    ],
+    keywords='security face-recognition ai computer-vision opencv streamlit wake-lock',
+    packages=find_packages(exclude=['tests', 'tests.*', 'logs', 'logs.*', 'temp*']),
+    python_requires='>=3.11',
+    install_requires=read_requirements(),
     extras_require={
         'dev': [
             'pytest>=7.4.0',
             'pytest-cov>=4.1.0',
-            'pytest-mock>=3.11.0',
             'black>=23.7.0',
             'flake8>=6.1.0',
-            'mypy>=1.5.0',
-        ],
-        'linux': [
-            'dbus-python>=1.3.2',
-        ],
-        'windows': [
-            'pywin32>=306',
         ],
     },
     entry_points={
         'console_scripts': [
-            'senthium=cli.main:main',
-            'senthiumd=daemon.core:main',
+            'senthium=src.cli.main:main',
         ],
     },
+    include_package_data=True,
 )
+
