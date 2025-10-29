@@ -253,7 +253,9 @@ elif page == "👤 Face Enrollment":
                                 cmd,
                                 capture_output=True,
                                 text=True,
-                                cwd=Path(__file__).parent
+                                cwd=Path(__file__).parent,
+                                encoding='utf-8',
+                                errors='replace'
                             )
                             
                             st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
@@ -327,7 +329,9 @@ elif page == "🔍 Security Check":
                         cmd,
                         capture_output=True,
                         text=True,
-                        cwd=Path(__file__).parent
+                        cwd=Path(__file__).parent,
+                        encoding='utf-8',
+                        errors='replace'
                     )
                     
                     st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
@@ -412,7 +416,9 @@ elif page == "⚙️ Settings":
                         cmd,
                         capture_output=True,
                         text=True,
-                        cwd=Path(__file__).parent
+                        cwd=Path(__file__).parent,
+                        encoding='utf-8',
+                        errors='replace'
                     )
                     
                     st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
@@ -438,7 +444,9 @@ elif page == "⚙️ Settings":
                         cmd,
                         capture_output=True,
                         text=True,
-                        cwd=Path(__file__).parent
+                        cwd=Path(__file__).parent,
+                        encoding='utf-8',
+                        errors='replace'
                     )
                     
                     st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
@@ -507,7 +515,9 @@ elif page == "⚙️ Settings":
                     cmd,
                     capture_output=True,
                     text=True,
-                    cwd=Path(__file__).parent
+                    cwd=Path(__file__).parent,
+                    encoding='utf-8',
+                    errors='replace'
                 )
                 
                 st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
@@ -534,7 +544,9 @@ elif page == "⚙️ Settings":
                     cmd,
                     capture_output=True,
                     text=True,
-                    cwd=Path(__file__).parent
+                    cwd=Path(__file__).parent,
+                    encoding='utf-8',
+                    errors='replace'
                 )
                 
                 st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
@@ -561,7 +573,9 @@ elif page == "⚙️ Settings":
                     cmd,
                     capture_output=True,
                     text=True,
-                    cwd=Path(__file__).parent
+                    cwd=Path(__file__).parent,
+                    encoding='utf-8',
+                    errors='replace'
                 )
                 
                 st.write(f"📊 **DEBUG:** Return code: {result.returncode}")
