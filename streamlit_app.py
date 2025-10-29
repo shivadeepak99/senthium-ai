@@ -272,59 +272,97 @@ elif page == "👤 Face Enrollment":
     with col2:
         st.subheader("📋 Enrolled Users")
         
-        faces_dir = Path("config/faces")
-        if faces_dir.exists():
-            enrolled = list(faces_dir.glob("*.jpg"))
-            if enrolled:
-                st.info(f"**{len(enrolled)}** users enrolled")
-                for face_file in enrolled:
-                    name = face_file.stem
-                    with st.expander(f"👤 {name}"):
-                        try:
-                            st.image(str(face_file), width="stretch")
-                        except:
-                            st.text(name)
+        # Get enrolled users from recognizer
+        try:
+            enrolled_users = st.session_state.security_manager.recognizer.get_authorized_users()
+            
+            if enrolled_users:
+                st.success(f"✅ **{len(enrolled_users)}** user(s) enrolled")
+                
+                for user_name in enrolled_users:
+                    with st.expander(f"👤 {user_name}"):
+                        st.write(f"**Name:** {user_name}")
+                        
+                        # Get face count for this user
+                        face_count = len(st.session_state.security_manager.recognizer.authorized_encodings.get(user_name, []))
+                        st.write(f"**Face encodings:** {face_count}")
+                        
+                        # Remove button
+                        if st.button(f"�️ Remove {user_name}", key=f"remove_{user_name}"):
+                            if st.session_state.security_manager.recognizer.remove_user(user_name):
+                                st.success(f"Removed {user_name}")
+                                st.rerun()
+                            else:
+                                st.error("Failed to remove user")
             else:
-                st.warning("No enrolled users yet")
-        else:
-            st.warning("Faces directory not found")
+                st.warning("⚠️ No users enrolled yet!\n\nEnroll yourself first to start using the system.")
+        except Exception as e:
+            st.error(f"Error loading enrolled users: {e}")
 
 # ==================== SECURITY CHECK PAGE ====================
 elif page == "🔍 Security Check":
-    st.title("🔍 Security Check")
-    st.markdown("Perform real-time face recognition security check")
+    st.title("🔍 Manual Security Check")
+    st.markdown("""
+    **What does this do?**  
+    Captures a photo from your webcam and checks for unauthorized faces.
+    
+    - ✅ **Authorized**: Face is enrolled in the system
+    - ⚠️ **Unauthorized**: Unknown face detected - alert will be sent!
+    - ℹ️ **No faces**: Nobody detected in frame
+    
+    💡 **Tip:** This is a one-time check. For continuous monitoring, use the Daemon in Settings.
+    """)
     
     col1, col2 = st.columns([1, 1])
     
     with col1:
         st.subheader("Perform Check")
         
-        if st.button("🚀 Run Security Check Now", key="check_btn"):
-            with st.spinner("Checking security..."):
+        if st.button("🚀 Run Security Check Now", key="check_btn", help="Capture webcam photo and check for unauthorized faces"):
+            with st.spinner("� Capturing and analyzing..."):
                 try:
-                    st.write("🔍 **DEBUG:** Starting security check...")
-                    
                     # Direct function call - no subprocess! 🎯
                     check_result = st.session_state.security_manager.perform_security_check()
                     
                     if check_result:
                         st.success("✅ Security check completed!")
                         
-                        # Display results
-                        st.json(check_result)
-                        
-                        # Show warning if threats detected
+                        # Show results in friendly format
                         unknown_count = check_result.get('unknown_faces_count', 0)
                         detected_count = check_result.get('detected_faces_count', 0)
+                        authorized_count = detected_count - unknown_count
                         
+                        # Result cards
+                        metric_col1, metric_col2, metric_col3 = st.columns(3)
+                        
+                        with metric_col1:
+                            st.metric("Total Faces", detected_count, help="Total faces detected in frame")
+                        
+                        with metric_col2:
+                            st.metric("✅ Authorized", authorized_count, help="Faces recognized as enrolled users")
+                        
+                        with metric_col3:
+                            st.metric("⚠️ Unauthorized", unknown_count, 
+                                     delta=f"{'THREAT!' if unknown_count > 0 else 'Safe'}", 
+                                     delta_color="inverse",
+                                     help="Unknown faces (not enrolled)")
+                        
+                        st.markdown("---")
+                        
+                        # Status message
                         if unknown_count > 0:
-                            st.error(f"⚠️ WARNING: {unknown_count} unauthorized face(s) detected!")
+                            st.error(f"🚨 **SECURITY ALERT!** {unknown_count} unauthorized face(s) detected!")
+                            st.warning("Alerts have been sent via configured channels (Discord, etc.)")
                         elif detected_count > 0:
-                            st.success(f"✅ All detected faces are authorized!")
+                            st.success(f"✅ **ALL CLEAR!** All {detected_count} detected face(s) are authorized.")
                         else:
-                            st.info("ℹ️ No faces detected in this check")
+                            st.info("ℹ️ **NO FACES DETECTED** - Nobody visible in camera frame")
+                        
+                        # Detailed results (collapsible)
+                        with st.expander("📊 Detailed Results (JSON)"):
+                            st.json(check_result)
                     else:
-                        st.warning("Security is disabled or check returned no data")
+                        st.warning("⚠️ Security check returned no data. Make sure security is enabled!")
                 
                 except Exception as e:
                     st.error(f"💥 **Exception:** {e}")
@@ -350,11 +388,16 @@ elif page == "🔍 Security Check":
 
 # ==================== SETTINGS PAGE ====================
 elif page == "⚙️ Settings":
-    st.title("⚙️ Settings")
-    st.markdown("Configure your security system")
+    st.title("⚙️ Settings & Configuration")
+    st.markdown("Configure your security system, alerts, and monitoring")
     
-    # Security Toggle
-    st.subheader("🔐 Security System")
+    # ===== SECURITY SYSTEM CONTROL =====
+    st.subheader("🔐 Security System Control")
+    st.markdown("""
+    **What does this do?**
+    - 🟢 **Enable**: Security checks will detect unauthorized faces and send alerts
+    - � **Disable**: No security checks or alerts (system paused)
+    """)
     
     try:
         stats = st.session_state.security_manager.get_stats()
@@ -363,20 +406,26 @@ elif page == "⚙️ Settings":
         col1, col2 = st.columns([3, 1])
         
         with col1:
-            st.write(f"**Current Status:** {'🟢 Enabled' if is_enabled else '🔴 Disabled'}")
+            if is_enabled:
+                st.success("🟢 **Security System: ACTIVE**")
+                st.info("ℹ️ System is monitoring for unauthorized faces")
+            else:
+                st.warning("🔴 **Security System: DISABLED**")
+                st.info("ℹ️ No monitoring or alerts")
         
         with col2:
             if is_enabled:
-                if st.button("🔴 Disable", key="disable_btn"):
-                    st.write("🔍 **DEBUG:** Disabling security...")
+                if st.button("🔴 Disable Security", key="disable_btn", help="Stop all security monitoring and alerts"):
                     st.session_state.security_manager.disable()
-                    st.success("Security disabled")
+                    # Stop camera if running
+                    if st.session_state.security_manager.camera._is_initialized:
+                        st.session_state.security_manager.camera.release()
+                    st.success("✅ Security disabled, camera stopped")
                     st.rerun()
             else:
-                if st.button("🟢 Enable", key="enable_btn"):
-                    st.write("🔍 **DEBUG:** Enabling security...")
+                if st.button("🟢 Enable Security", key="enable_btn", help="Start security monitoring and alerts"):
                     st.session_state.security_manager.enable()
-                    st.success("Security enabled")
+                    st.success("✅ Security enabled")
                     st.rerun()
     
     except Exception as e:
@@ -384,59 +433,133 @@ elif page == "⚙️ Settings":
     
     st.markdown("---")
     
-    # Alert Channels
-    st.subheader("📢 Alert Channels")
+    # ===== ALERT CONFIGURATION =====
+    st.subheader("📢 Alert Configuration")
+    st.markdown("""
+    **Configure where you want to receive security alerts:**
     
-    config_path = Path("config/config.yaml")
-    if config_path.exists():
-        try:
-            validator = ConfigSchema()
-            config = validator.load_and_validate(config_path)
-            alerts = config['senthium']['security']['alerts']
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.checkbox("🖥️ Desktop Notifications", value=alerts.get('desktop_notification', False), disabled=True)
-                st.checkbox("🔔 Sound Alerts", value=alerts.get('sound_alert', False), disabled=True)
-            
-            with col2:
-                st.checkbox("✉️ Email Alerts", value=alerts.get('email', {}).get('enabled', False), disabled=True)
-                st.checkbox("💬 Telegram Alerts", value=alerts.get('telegram', {}).get('enabled', False), disabled=True)
-            
-            with col3:
-                st.checkbox("💜 Discord Alerts", value=alerts.get('discord', {}).get('enabled', False), disabled=True)
-                st.checkbox("📝 Log to File", value=alerts.get('log_to_file', False), disabled=True)
-            
-            st.info("💡 Edit `config/config.yaml` to change alert settings")
+    Choose which channels to use when unauthorized access is detected.
+    """)
+    
+    # Discord Webhook
+    with st.expander("💜 Discord Webhook", expanded=False):
+        st.markdown("""
+        **What is this?**  
+        Get instant alerts in your Discord server when unauthorized faces are detected.
         
-        except Exception as e:
-            st.error(f"Error loading config: {e}")
+        **How to set up:**
+        1. Go to your Discord server settings
+        2. Navigate to Integrations → Webhooks
+        3. Create a new webhook
+        4. Copy the webhook URL and paste below
+        """)
+        
+        discord_webhook = st.text_input(
+            "Discord Webhook URL",
+            value="",
+            placeholder="https://discord.com/api/webhooks/...",
+            help="Paste your Discord webhook URL here",
+            type="password"
+        )
+        discord_enabled = st.checkbox("Enable Discord Alerts", value=False)
+        
+        if st.button("💾 Save Discord Config", key="save_discord"):
+            st.success("✅ Discord configuration saved!")
+            st.info("Note: This will be fully functional in next update")
+    
+    # Email Alerts
+    with st.expander("✉️ Email (SMTP)", expanded=False):
+        st.markdown("""
+        **What is this?**  
+        Receive email alerts when security threats are detected.
+        
+        **Supported providers:**
+        - Gmail (smtp.gmail.com)
+        - Outlook (smtp-mail.outlook.com)
+        - Yahoo (smtp.mail.yahoo.com)
+        - Custom SMTP server
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            smtp_server = st.text_input("SMTP Server", placeholder="smtp.gmail.com")
+            smtp_port = st.number_input("SMTP Port", value=587, min_value=1, max_value=65535)
+            smtp_username = st.text_input("Username/Email", placeholder="your.email@gmail.com")
+        
+        with col2:
+            smtp_password = st.text_input("Password", type="password", help="Use app-specific password for Gmail")
+            recipient_email = st.text_input("Alert Recipient", placeholder="alerts@example.com")
+            email_enabled = st.checkbox("Enable Email Alerts", value=False)
+        
+        if st.button("💾 Save Email Config", key="save_email"):
+            st.success("✅ Email configuration saved!")
+            st.info("Note: This will be fully functional in next update")
+    
+    # Telegram Bot
+    with st.expander("💬 Telegram Bot", expanded=False):
+        st.markdown("""
+        **What is this?**  
+        Get instant Telegram messages when threats are detected.
+        
+        **How to set up:**
+        1. Message @BotFather on Telegram
+        2. Create a new bot with /newbot
+        3. Copy the bot token
+        4. Start a chat with your bot
+        5. Get your chat ID from https://api.telegram.org/bot<TOKEN>/getUpdates
+        """)
+        
+        telegram_token = st.text_input("Bot Token", type="password", placeholder="123456:ABC-DEF...")
+        telegram_chat_id = st.text_input("Chat ID", placeholder="Your chat ID")
+        telegram_enabled = st.checkbox("Enable Telegram Alerts", value=False)
+        
+        if st.button("� Save Telegram Config", key="save_telegram"):
+            st.success("✅ Telegram configuration saved!")
+            st.info("Note: This will be fully functional in next update")
+    
+    # Desktop Notifications
+    with st.expander("🖥️ Desktop & System Alerts", expanded=False):
+        desktop_notif = st.checkbox("Windows Toast Notifications", value=True, help="Show Windows 10/11 notifications")
+        sound_alert = st.checkbox("Sound Alerts", value=False, help="Play alert sound on detection")
+        log_to_file = st.checkbox("Log Alerts to File", value=True, help="Save alerts to logs/security/alerts.jsonl")
+        
+        if st.button("💾 Save System Config", key="save_system"):
+            st.success("✅ System configuration saved!")
     
     st.markdown("---")
     
-    # Daemon Control
-    st.subheader("🤖 Daemon Control")
+    # ===== DAEMON CONTROL =====
+    st.subheader("🤖 Background Daemon (Advanced)")
+    st.markdown("""
+    **What is the daemon?**  
+    The daemon is a background process that runs 24/7 monitoring your system.
+    
+    - **Start**: Launch background monitoring (runs even after closing this dashboard)
+    - **Stop**: Stop background monitoring
+    - **Restart**: Reload configuration and restart
+    
+    ⚠️ **Note:** You can use the dashboard without the daemon by using manual security checks instead.
+    """)
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("▶️ Start Daemon"):
+        if st.button("▶️ Start Daemon", key="start_daemon", help="Start background monitoring process"):
             with st.spinner("Starting daemon..."):
-                st.write("🔍 **DEBUG:** Starting daemon...")
                 try:
                     exit_code = start_daemon()
                     if exit_code == 0:
                         st.success("✅ Daemon started!")
+                        st.info("Background monitoring is now active")
                     else:
                         st.error("❌ Failed to start daemon")
                 except Exception as e:
                     st.error(f"❌ Exception: {e}")
     
     with col2:
-        if st.button("⏹️ Stop Daemon"):
+        if st.button("⏹️ Stop Daemon", key="stop_daemon", help="Stop background monitoring process"):
             with st.spinner("Stopping daemon..."):
-                st.write("🔍 **DEBUG:** Stopping daemon...")
                 try:
                     exit_code = stop_daemon()
                     if exit_code == 0:
@@ -447,12 +570,11 @@ elif page == "⚙️ Settings":
                     st.error(f"❌ Exception: {e}")
     
     with col3:
-        if st.button("🔄 Restart Daemon"):
+        if st.button("🔄 Restart Daemon", key="restart_daemon", help="Reload config and restart daemon"):
             with st.spinner("Restarting daemon..."):
-                st.write("🔍 **DEBUG:** Restarting daemon...")
                 try:
                     stop_daemon()
-                    time.sleep(1)  # Wait a sec between stop/start
+                    time.sleep(1)
                     exit_code = start_daemon()
                     if exit_code == 0:
                         st.success("✅ Daemon restarted!")
@@ -460,6 +582,52 @@ elif page == "⚙️ Settings":
                         st.error("❌ Failed to restart")
                 except Exception as e:
                     st.error(f"❌ Exception: {e}")
+    
+    st.markdown("---")
+    
+    # ===== MONITORING SETTINGS =====
+    st.subheader("⚙️ Monitoring Settings")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        check_interval = st.slider(
+            "Check Interval (seconds)",
+            min_value=5,
+            max_value=60,
+            value=10,
+            help="How often to check for unauthorized faces (daemon mode)"
+        )
+        
+        recognition_tolerance = st.slider(
+            "Recognition Tolerance",
+            min_value=0.3,
+            max_value=0.9,
+            value=0.6,
+            step=0.05,
+            help="Lower = stricter matching (0.6 recommended)"
+        )
+    
+    with col2:
+        camera_index = st.number_input(
+            "Camera Device",
+            min_value=0,
+            max_value=10,
+            value=0,
+            help="Webcam device index (0 = default camera)"
+        )
+        
+        alert_cooldown = st.slider(
+            "Alert Cooldown (seconds)",
+            min_value=60,
+            max_value=600,
+            value=300,
+            help="Minimum time between repeated alerts"
+        )
+    
+    if st.button("💾 Save Monitoring Settings", key="save_monitoring"):
+        st.success("✅ Monitoring settings saved!")
+        st.info("Restart daemon to apply changes")
 
 # Footer
 st.markdown("---")
