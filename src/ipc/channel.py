@@ -23,9 +23,11 @@ logger = logging.getLogger(__name__)
 IS_WINDOWS = platform.system() == "Windows"
 
 # Initialize Windows-specific imports
-win32pipe = None
-win32file = None
-pywintypes = None
+# pyright: reportOptionalMemberAccess=false
+# type: ignore - pywin32 optional dependency, suppress all type warnings
+win32pipe = None  # type: ignore
+win32file = None  # type: ignore
+pywintypes = None  # type: ignore
 
 if IS_WINDOWS:
     try:
@@ -288,9 +290,12 @@ class NamedPipeServer:
         
     def start(self) -> None:
         """Start listening on named pipe"""
+        if win32pipe is None or win32file is None:
+            raise RuntimeError("pywin32 not available. Install with: pip install pywin32")
+        
         # Create named pipe with non-blocking mode
         # type: ignore on entire call due to pywin32 type stubs issues
-        self.pipe_handle = win32pipe.CreateNamedPipe(
+        self.pipe_handle = win32pipe.CreateNamedPipe(  # type: ignore
             self.pipe_name,
             win32pipe.PIPE_ACCESS_DUPLEX | win32file.FILE_FLAG_OVERLAPPED,  # type: ignore
             win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_READMODE_MESSAGE | win32pipe.PIPE_WAIT,  # type: ignore
@@ -315,9 +320,9 @@ class NamedPipeServer:
             
         try:
             # Try non-blocking connect
-            win32pipe.ConnectNamedPipe(self.pipe_handle, None)
+            win32pipe.ConnectNamedPipe(self.pipe_handle, None)  # type: ignore
             return True
-        except pywintypes.error as e:
+        except pywintypes.error as e:  # type: ignore
             if e.args[0] == 535:  # ERROR_PIPE_CONNECTED
                 return True
             elif e.args[0] == 232:  # ERROR_NO_DATA (pipe closing)
