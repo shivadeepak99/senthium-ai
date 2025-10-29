@@ -343,13 +343,13 @@ class NamedPipeServer:
             
         try:
             # Read from pipe
-            result, data = win32file.ReadFile(self.pipe_handle, 4096)
+            result, data = win32file.ReadFile(self.pipe_handle, 4096)  # type: ignore
             
             if result == 0:  # Success
                 message_str = data.decode("utf-8")
                 return IPCMessage.from_json(message_str)
                 
-        except pywintypes.error as e:
+        except pywintypes.error as e:  # type: ignore
             if e.args[0] != 109:  # Ignore ERROR_BROKEN_PIPE
                 logger.error(f"Error receiving message: {e}")
                 
