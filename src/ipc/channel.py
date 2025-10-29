@@ -370,8 +370,8 @@ class NamedPipeServer:
             
         try:
             response_str = response.to_json()
-            win32file.WriteFile(self.pipe_handle, response_str.encode("utf-8"))
-            win32file.FlushFileBuffers(self.pipe_handle)
+            win32file.WriteFile(self.pipe_handle, response_str.encode("utf-8"))  # type: ignore
+            win32file.FlushFileBuffers(self.pipe_handle)  # type: ignore
             return True
         except Exception as e:
             logger.error(f"Error sending response: {e}")
@@ -381,7 +381,7 @@ class NamedPipeServer:
         """Disconnect current client"""
         if self.pipe_handle:
             try:
-                win32pipe.DisconnectNamedPipe(self.pipe_handle)
+                win32pipe.DisconnectNamedPipe(self.pipe_handle)  # type: ignore
             except:
                 pass
     
@@ -389,7 +389,7 @@ class NamedPipeServer:
         """Stop server and cleanup"""
         if self.pipe_handle:
             try:
-                win32file.CloseHandle(self.pipe_handle)
+                win32file.CloseHandle(self.pipe_handle)  # type: ignore
             except:
                 pass
             self.pipe_handle = None
@@ -427,22 +427,22 @@ class NamedPipeClient:
         try:
             # Wait for pipe to be available
             timeout_ms = int(self.timeout * 1000)
-            win32pipe.WaitNamedPipe(self.pipe_name, timeout_ms)
+            win32pipe.WaitNamedPipe(self.pipe_name, timeout_ms)  # type: ignore
             
             # Open pipe
-            pipe_handle = win32file.CreateFile(
+            pipe_handle = win32file.CreateFile(  # type: ignore
                 self.pipe_name,
-                win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                win32file.GENERIC_READ | win32file.GENERIC_WRITE,  # type: ignore
                 0,  # No sharing
                 None,  # Default security
-                win32file.OPEN_EXISTING,
+                win32file.OPEN_EXISTING,  # type: ignore
                 0,  # Default attributes
                 None  # No template
             )
             
             try:
                 # Set message mode (pywin32 type stubs are incomplete)
-                win32pipe.SetNamedPipeHandleState(
+                win32pipe.SetNamedPipeHandleState(  # type: ignore
                     pipe_handle,  # type: ignore
                     win32pipe.PIPE_READMODE_MESSAGE,  # type: ignore
                     None,
@@ -462,7 +462,7 @@ class NamedPipeClient:
             finally:
                 win32file.CloseHandle(pipe_handle)  # type: ignore
                 
-        except pywintypes.error as e:
+        except pywintypes.error as e:  # type: ignore
             if e.args[0] == 2:  # ERROR_FILE_NOT_FOUND
                 raise ConnectionError(
                     "Daemon not running. Start daemon first: senthiumd --daemon"
