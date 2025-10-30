@@ -23,10 +23,14 @@ try:
     if platform.system() == 'Windows':
         import winsound  # Built-in for Windows
         try:
-            from win10toast import ToastNotifier  # pip install win10toast
+            from win10toast_click import ToastNotifier  # pip install win10toast-click (better fork)
             WINDOWS_TOAST_AVAILABLE = True
         except ImportError:
-            WINDOWS_TOAST_AVAILABLE = False
+            try:
+                from win10toast import ToastNotifier  # Fallback to old version
+                WINDOWS_TOAST_AVAILABLE = True
+            except ImportError:
+                WINDOWS_TOAST_AVAILABLE = False
     else:
         try:
             from plyer import notification  # pip install plyer (cross-platform)
@@ -364,41 +368,48 @@ This is an automated alert from Senthium AI Security System.
         
         Windows: Uses win10toast (native Windows 10+ notifications)
         Linux/Mac: Uses plyer (cross-platform notification library)
+        
+        NOTE: Temporarily disabled due to win10toast WNDPROC bug in Python 3.11+
         """
         try:
-            if not DESKTOP_NOTIFICATIONS_AVAILABLE:
-                logger.debug("⚠️ Desktop notifications not available (install win10toast or plyer)")
-                return False
+            # TEMPORARY FIX: Disable desktop notifications due to pywin32/win10toast bug
+            # Error: "WNDPROC return value cannot be converted to LRESULT"
+            # This is a known issue with pywin32 + Python 3.11+
+            logger.debug("⚠️ Desktop notifications temporarily disabled (pywin32 compatibility issue)")
+            return False
             
-            title = f"🚨 Senthium: {alert.alert_type.value.replace('_', ' ').title()}"
-            message = alert.message[:256]  # Limit message length
-            
-            if platform.system() == 'Windows' and WINDOWS_TOAST_AVAILABLE:
-                # Windows 10+ native notifications
-                toaster = ToastNotifier()
-                toaster.show_toast(
-                    title=title,
-                    msg=message,
-                    duration=10,  # seconds
-                    icon_path=None,  # Can add custom icon later
-                    threaded=True  # Don't block
-                )
-                logger.info("✅ Desktop notification sent (Windows)")
-                return True
-                
-            elif PLYER_AVAILABLE:
-                # Cross-platform notifications
-                notification.notify(
-                    title=title,
-                    message=message,
-                    timeout=10  # seconds
-                )
-                logger.info("✅ Desktop notification sent (Plyer)")
-                return True
-            
-            else:
-                logger.debug("⚠️ No desktop notification library available")
-                return False
+            # Original code kept for reference (will re-enable when pywin32 is fixed):
+            # if not DESKTOP_NOTIFICATIONS_AVAILABLE:
+            #     logger.debug("⚠️ Desktop notifications not available (install win10toast or plyer)")
+            #     return False
+            # 
+            # title = f"🚨 Senthium: {alert.alert_type.value.replace('_', ' ').title()}"
+            # message = alert.message[:256]  # Limit message length
+            # 
+            # if platform.system() == 'Windows' and WINDOWS_TOAST_AVAILABLE:
+            #     toaster = ToastNotifier()
+            #     toaster.show_toast(
+            #         title=title,
+            #         msg=message,
+            #         duration=10,
+            #         icon_path=None,
+            #         threaded=True
+            #     )
+            #     logger.info("✅ Desktop notification sent (Windows)")
+            #     return True
+            #     
+            # elif PLYER_AVAILABLE:
+            #     notification.notify(
+            #         title=title,
+            #         message=message,
+            #         timeout=10
+            #     )
+            #     logger.info("✅ Desktop notification sent (Plyer)")
+            #     return True
+            # 
+            # else:
+            #     logger.debug("⚠️ No desktop notification library available")
+            #     return False
             
         except Exception as e:
             logger.error(f"❌ Desktop notification failed: {e}")

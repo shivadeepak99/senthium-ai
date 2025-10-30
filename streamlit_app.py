@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from src.vision.security_manager import SecurityManager
 from src.rules.schema import ConfigSchema
 from src.daemon.control import start_daemon, stop_daemon
+from src.utils.config_manager import ConfigManager
 
 # Page config
 st.set_page_config(
@@ -80,6 +81,7 @@ if 'security_manager' not in st.session_state:
         validator = ConfigSchema()
         config = validator.load_and_validate(config_path)
         st.session_state.security_manager = SecurityManager(config)
+        st.session_state.config_manager = ConfigManager(str(config_path))
         st.session_state.config_loaded = True
     except Exception as e:
         st.session_state.config_loaded = False
@@ -456,16 +458,23 @@ elif page == "⚙️ Settings":
         
         discord_webhook = st.text_input(
             "Discord Webhook URL",
-            value="",
+            value=st.session_state.config_manager.get('senthium.security.alerts.discord.webhook_url', ''),
             placeholder="https://discord.com/api/webhooks/...",
             help="Paste your Discord webhook URL here",
             type="password"
         )
-        discord_enabled = st.checkbox("Enable Discord Alerts", value=False)
+        discord_enabled = st.checkbox(
+            "Enable Discord Alerts",
+            value=st.session_state.config_manager.get('senthium.security.alerts.discord.enabled', False)
+        )
         
         if st.button("💾 Save Discord Config", key="save_discord"):
-            st.success("✅ Discord configuration saved!")
-            st.info("Note: This will be fully functional in next update")
+            if st.session_state.config_manager.update_discord(discord_webhook, discord_enabled):
+                st.success("✅ Discord configuration saved!")
+                st.info("💡 Restart daemon to apply changes")
+                st.rerun()
+            else:
+                st.error("❌ Failed to save configuration")
     
     # Email Alerts
     with st.expander("✉️ Email (SMTP)", expanded=False):
@@ -493,8 +502,14 @@ elif page == "⚙️ Settings":
             email_enabled = st.checkbox("Enable Email Alerts", value=False)
         
         if st.button("💾 Save Email Config", key="save_email"):
-            st.success("✅ Email configuration saved!")
-            st.info("Note: This will be fully functional in next update")
+            if st.session_state.config_manager.update_email(
+                smtp_server, smtp_port, smtp_username, smtp_password, recipient_email, email_enabled
+            ):
+                st.success("✅ Email configuration saved!")
+                st.info("💡 Restart daemon to apply changes")
+                st.rerun()
+            else:
+                st.error("❌ Failed to save configuration")
     
     # Telegram Bot
     with st.expander("💬 Telegram Bot", expanded=False):
@@ -514,9 +529,13 @@ elif page == "⚙️ Settings":
         telegram_chat_id = st.text_input("Chat ID", placeholder="Your chat ID")
         telegram_enabled = st.checkbox("Enable Telegram Alerts", value=False)
         
-        if st.button("� Save Telegram Config", key="save_telegram"):
-            st.success("✅ Telegram configuration saved!")
-            st.info("Note: This will be fully functional in next update")
+        if st.button("💾 Save Telegram Config", key="save_telegram"):
+            if st.session_state.config_manager.update_telegram(telegram_token, telegram_chat_id, telegram_enabled):
+                st.success("✅ Telegram configuration saved!")
+                st.info("💡 Restart daemon to apply changes")
+                st.rerun()
+            else:
+                st.error("❌ Failed to save configuration")
     
     # Desktop Notifications
     with st.expander("🖥️ Desktop & System Alerts", expanded=False):
@@ -525,7 +544,12 @@ elif page == "⚙️ Settings":
         log_to_file = st.checkbox("Log Alerts to File", value=True, help="Save alerts to logs/security/alerts.jsonl")
         
         if st.button("💾 Save System Config", key="save_system"):
-            st.success("✅ System configuration saved!")
+            if st.session_state.config_manager.update_desktop_alerts(desktop_notif, sound_alert, log_to_file):
+                st.success("✅ System configuration saved!")
+                st.info("💡 Restart daemon to apply changes")
+                st.rerun()
+            else:
+                st.error("❌ Failed to save configuration")
     
     st.markdown("---")
     
@@ -626,8 +650,14 @@ elif page == "⚙️ Settings":
         )
     
     if st.button("💾 Save Monitoring Settings", key="save_monitoring"):
-        st.success("✅ Monitoring settings saved!")
-        st.info("Restart daemon to apply changes")
+        if st.session_state.config_manager.update_monitoring(
+            check_interval, recognition_tolerance, camera_index, alert_cooldown
+        ):
+            st.success("✅ Monitoring settings saved!")
+            st.info("💡 Restart daemon to apply changes")
+            st.rerun()
+        else:
+            st.error("❌ Failed to save configuration")
 
 # Footer
 st.markdown("---")

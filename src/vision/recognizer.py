@@ -25,7 +25,7 @@ class FaceRecognizer:
     def __init__(
         self,
         authorized_faces_file: str = "config/faces/authorized.json",
-        tolerance: float = 0.6
+        tolerance: float = 0.75
     ):
         """
         Initialize face recognizer.

@@ -1,6 +1,6 @@
 """
-Face Detector - OpenCV DNN Implementation
-Uses OpenCV's DNN module with pre-trained Caffe models
+Face Detector - OpenCV DNN Implementation + DeepFace Embeddings
+Uses OpenCV's DNN module for detection + DeepFace for recognition
 NO dlib dependency! Works on all Python versions! 🚀
 """
 
@@ -10,6 +10,14 @@ import numpy as np
 from typing import List, Tuple, Optional
 from pathlib import Path
 import urllib.request
+
+# DeepFace for face embeddings (better than histogram+DCT)
+try:
+    from deepface import DeepFace
+    DEEPFACE_AVAILABLE = True
+except ImportError:
+    DEEPFACE_AVAILABLE = False
+    logging.warning("DeepFace not available. Install with: pip install deepface")
 
 
 logger = logging.getLogger(__name__)
@@ -143,20 +151,22 @@ class FaceDetector:
     def extract_face_encodings(
         self, 
         image: np.ndarray,
-        face_locations: Optional[List[Tuple[int, int, int, int]]] = None
+        face_locations: Optional[List[Tuple[int, int, int, int]]] = None,
+        model_name: str = 'Facenet'  # Facenet, VGG-Face, ArcFace, etc.
     ) -> List[np.ndarray]:
         """
-        Extract face encodings using simple feature extraction.
+        Extract face encodings using DeepFace (proper face recognition).
         
-        Note: This is a simplified version. For production, use a proper
-        face recognition model like FaceNet or ArcFace.
+        Now uses DeepFace with Facenet model for accurate 128-dim embeddings!
+        Much better than our old histogram+DCT approach.
         
         Args:
             image: BGR image from OpenCV
             face_locations: Pre-detected face locations
+            model_name: DeepFace model to use (Facenet, VGG-Face, ArcFace, etc.)
         
         Returns:
-            List of face encoding arrays (simplified 128-dim vectors)
+            List of face encoding arrays (128-dim for Facenet)
         """
         try:
             if face_locations is None:
@@ -164,6 +174,11 @@ class FaceDetector:
             
             if not face_locations:
                 return []
+            
+            # Check if DeepFace is available
+            if not DEEPFACE_AVAILABLE:
+                logger.warning("⚠️ DeepFace not available, using fallback embeddings")
+                return self._extract_face_encodings_fallback(image, face_locations)
             
             encodings = []
             
@@ -174,30 +189,84 @@ class FaceDetector:
                 if face.size == 0:
                     continue
                 
-                # Resize to standard size
-                face_resized = cv2.resize(face, (128, 128))
-                
-                # Convert to grayscale and flatten
-                face_gray = cv2.cvtColor(face_resized, cv2.COLOR_BGR2GRAY)
-                
-                # Simple encoding: histogram + DCT coefficients
-                hist = cv2.calcHist([face_gray], [0], None, [64], [0, 256])
-                hist = cv2.normalize(hist, hist).flatten()
-                
-                # Get DCT coefficients
-                dct = cv2.dct(np.float32(face_gray))
-                dct_features = dct[:8, :8].flatten()[:64]
-                
-                # Combine features to get 128-dim encoding
-                encoding = np.concatenate([hist, dct_features])
-                encodings.append(encoding)
+                try:
+                    # Use DeepFace to extract embeddings
+                    # enforce_detection=False because we already detected the face
+                    embedding_objs = DeepFace.represent(
+                        img_path=face,
+                        model_name=model_name,
+                        enforce_detection=False,
+                        detector_backend='skip'  # We already detected, skip re-detection
+                    )
+                    
+                    # DeepFace returns list of dicts
+                    if embedding_objs and len(embedding_objs) > 0:
+                        embedding = np.array(embedding_objs[0]['embedding'])
+                        encodings.append(embedding)
+                    
+                except Exception as e:
+                    logger.warning(f"⚠️ DeepFace encoding failed for one face: {e}")
+                    # Use fallback for this face
+                    fallback = self._extract_single_face_fallback(face)
+                    if fallback is not None:
+                        encodings.append(fallback)
             
-            logger.debug(f"🔢 Extracted {len(encodings)} face encoding(s)")
+            logger.debug(f"🔢 Extracted {len(encodings)} face encoding(s) using {model_name}")
             return encodings
             
         except Exception as e:
             logger.error(f"❌ Face encoding extraction failed: {e}")
-            return []
+            # Fallback to simple method (handle None case)
+            if face_locations is None:
+                face_locations = self.detect_faces(image)
+            return self._extract_face_encodings_fallback(image, face_locations)
+    
+    def _extract_face_encodings_fallback(
+        self,
+        image: np.ndarray,
+        face_locations: List[Tuple[int, int, int, int]]
+    ) -> List[np.ndarray]:
+        """
+        Fallback method: Simple histogram+DCT encodings (old method).
+        Used when DeepFace is not available.
+        """
+        encodings = []
+        
+        for (top, right, bottom, left) in face_locations:
+            face = image[top:bottom, left:right]
+            
+            if face.size == 0:
+                continue
+            
+            fallback = self._extract_single_face_fallback(face)
+            if fallback is not None:
+                encodings.append(fallback)
+        
+        return encodings
+    
+    def _extract_single_face_fallback(self, face: np.ndarray) -> Optional[np.ndarray]:
+        """Extract simple encoding for a single face (fallback method)."""
+        try:
+            # Resize to standard size
+            face_resized = cv2.resize(face, (128, 128))
+            
+            # Convert to grayscale
+            face_gray = cv2.cvtColor(face_resized, cv2.COLOR_BGR2GRAY)
+            
+            # Simple encoding: histogram + DCT coefficients
+            hist = cv2.calcHist([face_gray], [0], None, [64], [0, 256])
+            hist = cv2.normalize(hist, hist).flatten()
+            
+            # Get DCT coefficients
+            dct = cv2.dct(np.float32(face_gray))
+            dct_features = dct[:8, :8].flatten()[:64]
+            
+            # Combine features to get 128-dim encoding
+            encoding = np.concatenate([hist, dct_features])
+            return encoding
+        except Exception as e:
+            logger.error(f"❌ Fallback encoding failed: {e}")
+            return None
     
     def detect_and_encode(
         self,

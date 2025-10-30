@@ -1,18 +1,16 @@
-# 🌸 Senthium - Intelligent Power Management Daemon
+# 🔒 Senthium AI Security System
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)
-![Python](https://img.shields.io/badge/python-3.9+-green.svg)
-![Go](https://img.shields.io/badge/go-1.21+-00ADD8.svg)
-![Next.js](https://img.shields.io/badge/next.js-16-black.svg)
-![Tests](https://img.shields.io/badge/tests-73%20passing-brightgreen.svg)
-![Coverage](https://img.shields.io/badge/coverage-71%25-yellow.svg)
+![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)
+![Python](https://img.shields.io/badge/python-3.11+-green.svg)
+![OpenCV](https://img.shields.io/badge/OpenCV-4.8+-green.svg)
+![DeepFace](https://img.shields.io/badge/DeepFace-0.0.79+-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-purple.svg)
 
-**Keep your PC awake when it matters, let it sleep when it doesn't.**
+**AI-powered face recognition security for your PC. Protect your system when you're away.**
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Web Dashboard](#-web-dashboard) • [Documentation](docs/USER_GUIDE.md) • [Examples](config/examples/) • [Why Senthium?](docs/WHY.md)
+[Features](#-features) • [Quick Start](#-quick-start) • [Screenshots](#-screenshots) • [Usage](#-usage) • [Configuration](#%EF%B8%8F-configuration)
 
 </div>
 
@@ -20,35 +18,43 @@
 
 ## 🎯 The Problem
 
-You start a long download, compilation, or backup... then need to step away. Now you're stuck between:
+You need to leave your PC running (downloads, renders, backups), but you can't shut it down. Now you're stuck with:
 
-- 🔓 **Leaving your PC unlocked** (security risk)
-- 😴 **Letting it sleep** (interrupting your task)
-- ⏰ **Disabling sleep entirely** (wastes power, forget to re-enable)
+- 🔓 **Leaving your PC unlocked** (anyone can access it!)
+- 😴 **System sleep** (interrupts your tasks)
+- ⚠️ **Unauthorized access** (no way to know if someone used it)
 
-**Senthium solves this.**
+**Senthium AI Security solves this.**
 
 ---
 
 ## ✨ Features
 
-### 🧠 **Intelligent Rules Engine**
-- **6 Rule Types**: Process, CPU, Disk, Network, Combined, **Schedule** *(NEW!)*
-- **Time-based Rules**: Stay awake during work hours, gaming schedules, etc.
-- **Real-time Monitoring**: Detects activity as it happens
-- **Automatic Stay-Awake**: No manual intervention needed
+### � **AI-Powered Security**
+- **Face Detection**: OpenCV DNN - fast, accurate, no dlib dependency
+- **Face Recognition**: DeepFace with Facenet/ArcFace models
+- **Multi-face Detection**: Detect multiple people simultaneously
+- **Real-time Monitoring**: Continuous background surveillance
 
-### 🌐 **Modern Web Dashboard** *(NEW in v0.5!)*
-- **Real-time Monitoring**: Live daemon status with WebSocket updates
-- **Activity Analytics**: 7-day session history with visualizations
-- **System Metrics**: CPU, Disk, Network, Process monitoring
-- **Daemon Controls**: Start/Stop/Restart from web UI
-- **Beautiful UI**: Modern gradient design with glassmorphism
-- **Tech Stack**: Go backend + Next.js frontend + Tailwind CSS
+### 📢 **Smart Alerts**
+- **💜 Discord**: Instant webhook notifications with snapshots
+- **✉️ Email**: SMTP alerts (Gmail, Outlook, Yahoo, custom)
+- **💬 Telegram**: Bot notifications
+- **🖥️ Windows Toast**: Desktop notifications
+- **📝 Alert History**: Complete log with timestamps and photos
 
-### 🎛️ **System Service Integration** *(NEW!)*
-- **Windows Service**: Auto-start on boot with Service Control Manager
-- **Linux systemd**: Security-hardened service with journal logging
+### 🎨 **Beautiful Web Dashboard**
+- **Streamlit Interface**: Modern, responsive web UI
+- **Face Enrollment**: Drag-and-drop photo upload
+- **Manual Check**: One-click security scan
+- **Settings Page**: Configure all options from GUI (Discord webhook, SMTP, etc.)
+- **Live Stats**: Real-time monitoring dashboard
+
+### 🤖 **Background Daemon**
+- **24/7 Monitoring**: Runs silently in background
+- **Auto-start**: Launch on system boot (Windows service)
+- **Low Overhead**: Minimal CPU/RAM usage
+- **Configurable**: Adjust check interval, tolerance, cooldown
 - **Service Commands**: `senthium service install/start/stop/status`
 
 ### 📊 **Activity Logging** *(NEW!)*
