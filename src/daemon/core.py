@@ -570,8 +570,8 @@ class SenthiumDaemon:
 
 # Example usage / testing
 if __name__ == '__main__':
-    from utils.logger import setup_logger
-    from utils.pid import PIDFile
+    from src.utils.logger import setup_logger
+    from src.utils.pid import PIDFile
     import argparse
     
     # Parse command-line arguments

@@ -21,6 +21,7 @@ from src.vision.security_manager import SecurityManager
 from src.rules.schema import ConfigSchema
 from src.daemon.control import start_daemon, stop_daemon
 from src.utils.config_manager import ConfigManager
+from src.utils.pid import PIDFile
 
 # Page config
 st.set_page_config(
@@ -58,18 +59,32 @@ st.markdown("""
         text-align: center;
     }
     .alert-card {
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin: 0.5rem 0;
-        border-left: 4px solid;
+        padding: 1.25rem;
+        border-radius: 0.75rem;
+        margin: 0.75rem 0;
+        border-left: 5px solid;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        color: #1a1a1a;
+        font-size: 0.95rem;
     }
     .alert-threat {
-        background: #fee;
-        border-color: #f00;
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+        border-color: #c92a2a;
+        color: white;
     }
     .alert-authorized {
-        background: #efe;
-        border-color: #0f0;
+        background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+        border-color: #2f9e44;
+        color: white;
+    }
+    .alert-card strong {
+        font-size: 1.1rem;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+    .alert-card small {
+        opacity: 0.9;
+        font-size: 0.85rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -106,6 +121,13 @@ with st.sidebar:
         try:
             stats = st.session_state.security_manager.get_stats()
             st.metric("System Status", "🟢 Active" if stats.get('enabled', False) else "🔴 Disabled")
+            
+            # Daemon status indicator
+            pid_file = PIDFile()
+            is_daemon_running = pid_file.is_running()
+            daemon_status = "🟢 Running" if is_daemon_running else "🔴 Stopped"
+            st.metric("Daemon Status", daemon_status)
+            
             st.metric("Total Checks", stats.get('total_checks', 0))
             st.metric("Threats Detected", stats.get('threats_detected', 0))
             st.metric("Authorized Users", stats.get('authorized_users_count', 0))
@@ -181,16 +203,24 @@ if page == "📊 Dashboard":
             
             if alerts:
                 for alert in reversed(alerts):  # Show newest first
-                    is_threat = alert.get('unknown_faces_count', 0) > 0
+                    alert_type = alert.get('alert_type', 'unknown')
+                    is_threat = alert_type == 'unauthorized_access'
                     alert_class = "alert-threat" if is_threat else "alert-authorized"
                     icon = "⚠️" if is_threat else "✅"
                     
+                    # Format timestamp nicely
+                    timestamp = alert.get('timestamp', 'Unknown time')
+                    if 'T' in timestamp:
+                        timestamp = timestamp.split('T')[1].split('.')[0]  # Get time only
+                    
+                    message = alert.get('message', 'No message')
+                    faces_count = alert.get('detected_faces_count', 0)
+                    
                     st.markdown(f"""
                     <div class="alert-card {alert_class}">
-                        <strong>{icon} {alert.get('timestamp', 'Unknown time')}</strong><br>
-                        Faces: {alert.get('detected_faces_count', 0)} | 
-                        Unknown: {alert.get('unknown_faces_count', 0)} | 
-                        Confidence: {alert.get('max_confidence', 0):.2f}
+                        <strong>{icon} {timestamp}</strong><br>
+                        {message}<br>
+                        <small>Detected faces: {faces_count}</small>
                     </div>
                     """, unsafe_allow_html=True)
             else:
@@ -435,6 +465,60 @@ elif page == "⚙️ Settings":
     
     st.markdown("---")
     
+    # ===== INTRUDER ACTION SETTINGS =====
+    st.subheader("🔐 Intruder Action Settings")
+    st.markdown("""
+    **What happens when an unauthorized face is detected?**
+    
+    Configure automatic actions to protect your PC from intruders!
+    """)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        auto_lock = st.checkbox(
+            "🔒 Auto-Lock Screen",
+            value=st.session_state.config_manager.get('senthium.security.auto_lock_on_intruder', True),
+            help="Immediately lock the screen when an unauthorized face is detected"
+        )
+        
+        play_alarm = st.checkbox(
+            "🔔 Play Alarm Sound",
+            value=st.session_state.config_manager.get('senthium.security.play_alarm_on_intruder', True),
+            help="Play a loud alarm sound to alert you"
+        )
+    
+    with col2:
+        auto_sleep = st.checkbox(
+            "😴 Auto-Sleep Computer",
+            value=st.session_state.config_manager.get('senthium.security.auto_sleep_on_intruder', False),
+            help="⚠️ NUCLEAR OPTION: Put computer to sleep immediately (requires wake-up)"
+        )
+        
+        if auto_sleep:
+            st.warning("⚠️ **Warning:** This will put your computer to sleep immediately! You'll need to physically wake it up.")
+    
+    if st.button("💾 Save Action Settings", key="save_actions"):
+        st.session_state.config_manager.config['senthium']['security']['auto_lock_on_intruder'] = auto_lock
+        st.session_state.config_manager.config['senthium']['security']['play_alarm_on_intruder'] = play_alarm
+        st.session_state.config_manager.config['senthium']['security']['auto_sleep_on_intruder'] = auto_sleep
+        
+        if st.session_state.config_manager.save():
+            st.success("✅ Action settings saved!")
+            st.info("💡 Restart daemon to apply changes")
+            
+            # Update security manager settings if already initialized
+            if st.session_state.security_manager:
+                st.session_state.security_manager.auto_lock_on_intruder = auto_lock
+                st.session_state.security_manager.play_alarm_on_intruder = play_alarm
+                st.session_state.security_manager.auto_sleep_on_intruder = auto_sleep
+            
+            st.rerun()
+        else:
+            st.error("❌ Failed to save configuration")
+    
+    st.markdown("---")
+    
     # ===== ALERT CONFIGURATION =====
     st.subheader("📢 Alert Configuration")
     st.markdown("""
@@ -555,6 +639,20 @@ elif page == "⚙️ Settings":
     
     # ===== DAEMON CONTROL =====
     st.subheader("🤖 Background Daemon (Advanced)")
+    
+    # Check daemon status
+    pid_file = PIDFile()
+    is_daemon_running = pid_file.is_running()
+    daemon_pid = pid_file.get_pid() if is_daemon_running else None
+    
+    # Status indicator
+    if is_daemon_running:
+        st.success(f"✅ **Daemon Status: RUNNING** (PID: {daemon_pid})")
+        st.info("💡 The daemon is actively monitoring in the background. Check the Dashboard for recent alerts.")
+    else:
+        st.warning("⚠️ **Daemon Status: NOT RUNNING**")
+        st.info("ℹ️ Start the daemon below for 24/7 automatic monitoring")
+    
     st.markdown("""
     **What is the daemon?**  
     The daemon is a background process that runs 24/7 monitoring your system.

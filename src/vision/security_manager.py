@@ -14,6 +14,7 @@ from src.vision.camera import CameraMonitor
 from src.vision.detector import FaceDetector
 from src.vision.recognizer import FaceRecognizer
 from src.alerts.notifier import AlertNotifier, SecurityAlert, AlertType
+from src.actions.system_actions import SystemActions
 
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,9 @@ class SecurityManager:
             config=self.config
         )
         
+        # System actions (lock, sleep, shutdown)
+        self.system_actions = SystemActions()
+        
         # State tracking
         self.enabled = self.config.get('enable_security', False)
         self.check_interval = self.config.get('check_interval_seconds', 10)
@@ -70,7 +74,18 @@ class SecurityManager:
         self.total_checks = 0
         self.unauthorized_detections = 0
         
+        # Security action settings
+        self.auto_lock_on_intruder = self.config.get('auto_lock_on_intruder', True)
+        self.auto_sleep_on_intruder = self.config.get('auto_sleep_on_intruder', False)
+        self.play_alarm_on_intruder = self.config.get('play_alarm_on_intruder', True)
+        
+        # Initialize camera immediately for daemon usage
+        if self.enabled:
+            logger.info("📸 Pre-initializing camera for daemon...")
+            self.camera.initialize()
+        
         logger.info(f"🛡️ Security manager initialized (enabled: {self.enabled})")
+        logger.info(f"   Auto-lock: {self.auto_lock_on_intruder} | Auto-sleep: {self.auto_sleep_on_intruder}")
     
     def enable(self):
         """Enable security monitoring."""
@@ -148,18 +163,48 @@ class SecurityManager:
             if unknown_faces:
                 self.unauthorized_detections += 1
                 
+                logger.critical(f"🚨 INTRUDER DETECTED! {len(unknown_faces)} unauthorized face(s)!")
+                
+                # 🔐 TAKE IMMEDIATE ACTION AGAINST INTRUDER!
+                # Play alarm sound first (non-blocking)
+                if self.play_alarm_on_intruder:
+                    try:
+                        self.system_actions.play_alarm_sound()
+                    except Exception as e:
+                        logger.error(f"Failed to play alarm: {e}")
+                
+                # Lock screen to block intruder access
+                if self.auto_lock_on_intruder:
+                    try:
+                        logger.warning("🔒 LOCKING SCREEN TO BLOCK INTRUDER!")
+                        lock_success = self.system_actions.lock_screen()
+                        if lock_success:
+                            logger.info("✅ Screen locked successfully - intruder blocked!")
+                        else:
+                            logger.error("❌ Failed to lock screen - check permissions!")
+                    except Exception as e:
+                        logger.error(f"❌ Lock screen failed: {e}")
+                
+                # Optional: Put computer to sleep (nuclear option)
+                if self.auto_sleep_on_intruder:
+                    try:
+                        logger.warning("😴 PUTTING COMPUTER TO SLEEP!")
+                        self.system_actions.sleep_computer()
+                    except Exception as e:
+                        logger.error(f"❌ Sleep failed: {e}")
+                
                 # Send alert (if cooldown period passed)
                 if self.notifier.should_send_alert(self.alert_cooldown):
                     alert = SecurityAlert(
                         timestamp=self.last_check_time.isoformat(),
                         alert_type=AlertType.UNAUTHORIZED_ACCESS,
-                        message=f"⚠️ UNAUTHORIZED ACCESS DETECTED! {len(unknown_faces)} unknown face(s) detected.",
+                        message=f"⚠️ UNAUTHORIZED ACCESS DETECTED! {len(unknown_faces)} unknown face(s) detected. Screen locked!",
                         snapshot_path=snapshot_path,
                         detected_faces_count=len(detections)
                     )
                     
                     self.notifier.send_alert(alert)
-                    logger.warning("🚨 ALERT SENT: Unauthorized access detected!")
+                    logger.warning("� ALERT SENT: Unauthorized access detected!")
             
             return {
                 "status": "success",
