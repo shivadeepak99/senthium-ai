@@ -446,9 +446,11 @@ class SenthiumDaemon:
         self.logger.info("Press Ctrl+C to stop (may take up to 1 second to respond)")
         
         print("[DEBUG] Entering main loop...")
+        print(f"[DEBUG] _running={self._running}, _shutdown_requested={self._shutdown_requested}")
         print("[DEBUG] Daemon is now monitoring... (Ctrl+C to stop)")
         try:
             while self._running and not self._shutdown_requested:
+                print(f"[DEBUG] Loop iteration {self.stats['poll_count'] + 1}")
                 self.stats['poll_count'] += 1
                 
                 # Poll IPC for CLI commands (non-blocking)

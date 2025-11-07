@@ -210,7 +210,9 @@ class SecurityManager:
                 "status": "success",
                 "timestamp": self.last_check_time.isoformat(),
                 "snapshot_path": snapshot_path,
-                "total_faces": len(detections),
+                "detected_faces_count": len(detections),
+                "authorized_faces_count": len(recognized_faces),
+                "unknown_faces_count": len(unknown_faces),
                 "recognized_faces": recognized_faces,
                 "unknown_faces": unknown_faces,
                 "alert_sent": len(unknown_faces) > 0 and self.notifier.should_send_alert(0)
