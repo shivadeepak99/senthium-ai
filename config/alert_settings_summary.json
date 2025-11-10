@@ -1,0 +1,39 @@
+{
+  "generated_at": "2025-11-10T14:16:19.618243",
+  "version": "0.2",
+  "alert_channels": {
+    "discord": {
+      "enabled": false,
+      "configured": false,
+      "webhook_set": "No"
+    },
+    "email": {
+      "enabled": true,
+      "configured": true,
+      "smtp_server": "smtp.gmail.com",
+      "smtp_port": 587,
+      "username": "demonsaint.official@gmail.com",
+      "recipient": "shivadeepak.dev@gmail.com",
+      "use_tls": true
+    },
+    "telegram": {
+      "enabled": false,
+      "configured": false,
+      "bot_token_set": "No",
+      "chat_id_set": "No"
+    },
+    "desktop": {
+      "toast_notifications": true,
+      "sound_alerts": true,
+      "log_to_file": true
+    }
+  },
+  "summary": {
+    "total_active_channels": 2,
+    "active_channels": [
+      "Email",
+      "Desktop Notifications"
+    ],
+    "any_alerts_enabled": true
+  }
+}

@@ -21,6 +21,14 @@ class ConfigManager:
         self.config_path = Path(config_path)
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
         self._config: Optional[Dict] = None
+        
+        # Import summary generator
+        try:
+            from src.utils.alert_config_summary import AlertConfigSummary
+            self.summary_generator = AlertConfigSummary()
+        except ImportError:
+            logger.warning("⚠️ Alert summary generator not available")
+            self.summary_generator = None
     
     def load(self) -> Dict:
         """Load configuration from YAML file"""
@@ -52,6 +60,11 @@ class ConfigManager:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 yaml.safe_dump(self._config, f, default_flow_style=False, sort_keys=False)
             logger.info(f"💾 Saved config to {self.config_path}")
+            
+            # Also save alert configuration summary
+            if self.summary_generator:
+                self.summary_generator.save_summary(self._config)
+            
             return True
         except Exception as e:
             logger.error(f"❌ Failed to save config: {e}")

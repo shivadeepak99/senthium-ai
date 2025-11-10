@@ -13,6 +13,7 @@ import json
 from datetime import datetime
 import os
 import time
+import requests  # For testing webhooks
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -253,53 +254,147 @@ elif page == "👤 Face Enrollment":
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.subheader("Upload Face Image")
+        st.subheader("📷 Capture or Upload Face Image")
         
         name = st.text_input("Enter person's name", placeholder="e.g., John Doe")
-        uploaded_file = st.file_uploader("Choose an image", type=['jpg', 'jpeg', 'png'])
         
-        if uploaded_file is not None:
-            # Display preview
-            image = Image.open(uploaded_file)
-            st.image(image, caption="Preview", width="stretch")
+        # Create tabs for different input methods 🎨
+        tab1, tab2 = st.tabs(["📸 Capture from Webcam", "📁 Upload Image"])
+        
+        with tab1:
+            st.markdown("### Take a photo using your webcam")
             
-            if st.button("🎯 Enroll Face", key="enroll_btn"):
-                if not name:
-                    st.error("Please enter a name first!")
-                else:
-                    with st.spinner("Enrolling face..."):
-                        try:
-                            st.write("🔍 **DEBUG:** Starting enrollment process...")
+            col_a, col_b, col_c = st.columns([1, 2, 1])
+            
+            with col_b:
+                if st.button("📸 Take Photo", key="capture_btn", use_container_width=True):
+                    if not name:
+                        st.error("⚠️ Please enter a name first!")
+                    else:
+                        with st.spinner("📷 Capturing from webcam..."):
+                            try:
+                                # Initialize camera if needed
+                                if not st.session_state.security_manager.camera._is_initialized:
+                                    st.session_state.security_manager.camera.initialize()
+                                
+                                # Capture frame
+                                frame = st.session_state.security_manager.camera.capture_frame()
+                                
+                                if frame is not None:
+                                    # Store in session state for preview
+                                    st.session_state['captured_frame'] = frame
+                                    st.session_state['captured_name'] = name
+                                    st.success("✅ Photo captured! Review below.")
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Failed to capture image from webcam. Make sure your camera is connected!")
                             
-                            # Save uploaded file temporarily
-                            temp_path = Path("temp_upload.jpg")
-                            with open(temp_path, "wb") as f:
-                                f.write(uploaded_file.getbuffer())
-                            st.write(f"✅ **DEBUG:** Saved temp file: {temp_path}")
+                            except Exception as e:
+                                st.error(f"💥 Camera error: {e}")
+                                import traceback
+                                st.code(traceback.format_exc(), language="python")
+            
+            # Show captured preview and enroll button
+            if 'captured_frame' in st.session_state:
+                st.divider()
+                st.markdown("### 📸 Captured Photo")
+                
+                # Convert BGR to RGB for display
+                import cv2
+                rgb_frame = cv2.cvtColor(st.session_state['captured_frame'], cv2.COLOR_BGR2RGB)
+                st.image(rgb_frame, caption=f"Preview: {st.session_state.get('captured_name', 'Unknown')}", use_container_width=True)
+                
+                col_x, col_y = st.columns(2)
+                
+                with col_x:
+                    if st.button("✅ Enroll This Face", key="enroll_captured", use_container_width=True):
+                        with st.spinner("🎯 Enrolling face..."):
+                            try:
+                                # Save temp file
+                                temp_path = Path("temp_webcam_capture.jpg")
+                                cv2.imwrite(str(temp_path), st.session_state['captured_frame'])
+                                
+                                # Enroll
+                                success = st.session_state.security_manager.enroll_owner_from_file(
+                                    image_path=str(temp_path),
+                                    user_name=st.session_state['captured_name']
+                                )
+                                
+                                # IMPORTANT: Release camera after enrollment!
+                                print("[DEBUG] Releasing camera after webcam enrollment...")
+                                st.session_state.security_manager.camera.release()
+                                
+                                # Cleanup
+                                temp_path.unlink(missing_ok=True)
+                                
+                                if success:
+                                    st.success(f"✅ Successfully enrolled {st.session_state['captured_name']}!")
+                                    st.balloons()
+                                    # Clear session state
+                                    del st.session_state['captured_frame']
+                                    del st.session_state['captured_name']
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Enrollment failed - no face detected or error occurred")
                             
-                            # Direct function call - no subprocess! 💪
-                            st.write(f"🔧 **DEBUG:** Enrolling {name} directly via security_manager...")
+                            except Exception as e:
+                                st.error(f"💥 Enrollment error: {e}")
+                                import traceback
+                                st.code(traceback.format_exc(), language="python")
+                
+                with col_y:
+                    if st.button("🔄 Retake Photo", key="retake_btn", use_container_width=True):
+                        # Release camera before retake
+                        print("[DEBUG] Releasing camera for retake...")
+                        st.session_state.security_manager.camera.release()
+                        del st.session_state['captured_frame']
+                        del st.session_state['captured_name']
+                        st.rerun()
+        
+        with tab2:
+            st.markdown("### Upload an image file")
+            uploaded_file = st.file_uploader("Choose an image", type=['jpg', 'jpeg', 'png'])
+            
+            if uploaded_file is not None:
+                # Display preview
+                image = Image.open(uploaded_file)
+                st.image(image, caption="Preview", use_container_width=True)
+                
+                if st.button("🎯 Enroll Face", key="enroll_btn", use_container_width=True):
+                    if not name:
+                        st.error("⚠️ Please enter a name first!")
+                    else:
+                        with st.spinner("Enrolling face..."):
+                            try:
+                                # Save uploaded file temporarily
+                                temp_path = Path("temp_upload.jpg")
+                                with open(temp_path, "wb") as f:
+                                    f.write(uploaded_file.getbuffer())
+                                
+                                # Enroll
+                                success = st.session_state.security_manager.enroll_owner_from_file(
+                                    image_path=str(temp_path),
+                                    user_name=name
+                                )
+                                
+                                # IMPORTANT: Release camera after enrollment (if it was used)!
+                                print("[DEBUG] Releasing camera after file upload enrollment...")
+                                st.session_state.security_manager.camera.release()
+                                
+                                # Clean up
+                                temp_path.unlink(missing_ok=True)
+                                
+                                if success:
+                                    st.success(f"✅ Successfully enrolled {name}!")
+                                    st.balloons()
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Enrollment failed - check logs for details")
                             
-                            success = st.session_state.security_manager.enroll_owner_from_file(
-                                image_path=str(temp_path),
-                                user_name=name
-                            )
-                            
-                            # Clean up
-                            temp_path.unlink(missing_ok=True)
-                            st.write("🧹 **DEBUG:** Cleaned up temp file")
-                            
-                            if success:
-                                st.success(f"✅ Successfully enrolled {name}!")
-                                st.balloons()
-                                st.rerun()
-                            else:
-                                st.error(f"❌ Enrollment failed - check logs for details")
-                        
-                        except Exception as e:
-                            st.error(f"💥 **Exception:** {e}")
-                            import traceback
-                            st.code(traceback.format_exc(), language="python")
+                            except Exception as e:
+                                st.error(f"💥 **Exception:** {e}")
+                                import traceback
+                                st.code(traceback.format_exc(), language="python")
     
     with col2:
         st.subheader("📋 Enrolled Users")
@@ -351,10 +446,14 @@ elif page == "🔍 Security Check":
         st.subheader("Perform Check")
         
         if st.button("🚀 Run Security Check Now", key="check_btn", help="Capture webcam photo and check for unauthorized faces"):
-            with st.spinner("� Capturing and analyzing..."):
+            with st.spinner("📷 Capturing and analyzing..."):
                 try:
                     # Direct function call - no subprocess! 🎯
                     check_result = st.session_state.security_manager.perform_security_check()
+                    
+                    # IMPORTANT: Release camera after check!
+                    print("[DEBUG] Releasing camera after manual security check...")
+                    st.session_state.security_manager.camera.release()
                     
                     if check_result:
                         st.success("✅ Security check completed!")
@@ -499,11 +598,17 @@ elif page == "⚙️ Settings":
             st.warning("⚠️ **Warning:** This will put your computer to sleep immediately! You'll need to physically wake it up.")
     
     if st.button("💾 Save Action Settings", key="save_actions"):
-        st.session_state.config_manager.config['senthium']['security']['auto_lock_on_intruder'] = auto_lock
-        st.session_state.config_manager.config['senthium']['security']['play_alarm_on_intruder'] = play_alarm
-        st.session_state.config_manager.config['senthium']['security']['auto_sleep_on_intruder'] = auto_sleep
+        # Load current config
+        config = st.session_state.config_manager._config
+        if config is None:
+            config = st.session_state.config_manager.load()
         
-        if st.session_state.config_manager.save():
+        # Update action settings
+        config['senthium']['security']['auto_lock_on_intruder'] = auto_lock
+        config['senthium']['security']['play_alarm_on_intruder'] = play_alarm
+        config['senthium']['security']['auto_sleep_on_intruder'] = auto_sleep
+        
+        if st.session_state.config_manager.save(config):
             st.success("✅ Action settings saved!")
             st.info("💡 Restart daemon to apply changes")
             
@@ -521,6 +626,27 @@ elif page == "⚙️ Settings":
     
     # ===== ALERT CONFIGURATION =====
     st.subheader("📢 Alert Configuration")
+    
+    # Show current alert status summary
+    from src.utils.alert_config_summary import AlertConfigSummary
+    summary_gen = AlertConfigSummary()
+    summary = summary_gen.generate_summary(st.session_state.config_manager._config or st.session_state.config_manager.load())
+    
+    # Display active channels in a nice card
+    col_sum1, col_sum2, col_sum3 = st.columns(3)
+    
+    with col_sum1:
+        active_count = summary['summary']['total_active_channels']
+        st.metric("Active Alert Channels", active_count, delta="Configured" if active_count > 0 else "None")
+    
+    with col_sum2:
+        discord_status = "🟢 Active" if summary['alert_channels']['discord']['enabled'] else "⚪ Inactive"
+        st.metric("Discord", discord_status)
+    
+    with col_sum3:
+        email_status = "🟢 Active" if summary['alert_channels']['email']['enabled'] else "⚪ Inactive"
+        st.metric("Email", email_status)
+    
     st.markdown("""
     **Configure where you want to receive security alerts:**
     
@@ -540,25 +666,65 @@ elif page == "⚙️ Settings":
         4. Copy the webhook URL and paste below
         """)
         
+        # Load current values
+        current_discord = st.session_state.config_manager.get('senthium.security.alerts.discord', {})
+        
         discord_webhook = st.text_input(
             "Discord Webhook URL",
-            value=st.session_state.config_manager.get('senthium.security.alerts.discord.webhook_url', ''),
+            value=current_discord.get('webhook_url', ''),
             placeholder="https://discord.com/api/webhooks/...",
             help="Paste your Discord webhook URL here",
             type="password"
         )
         discord_enabled = st.checkbox(
             "Enable Discord Alerts",
-            value=st.session_state.config_manager.get('senthium.security.alerts.discord.enabled', False)
+            value=current_discord.get('enabled', False)
         )
         
-        if st.button("💾 Save Discord Config", key="save_discord"):
-            if st.session_state.config_manager.update_discord(discord_webhook, discord_enabled):
-                st.success("✅ Discord configuration saved!")
-                st.info("💡 Restart daemon to apply changes")
-                st.rerun()
-            else:
-                st.error("❌ Failed to save configuration")
+        col_save, col_test = st.columns(2)
+        
+        with col_save:
+            if st.button("💾 Save Discord Config", key="save_discord", use_container_width=True):
+                print(f"🔍 DEBUG: Saving Discord - Enabled={discord_enabled}, URL={'SET' if discord_webhook else 'EMPTY'}")
+                
+                if st.session_state.config_manager.update_discord(discord_webhook, discord_enabled):
+                    print(f"✅ DEBUG: Discord config saved successfully!")
+                    st.success("✅ Discord configuration saved!")
+                    st.info("💡 Restart daemon to apply changes")
+                    
+                    # Update notifier config
+                    st.session_state.security_manager.notifier.config['discord_webhook_url'] = discord_webhook
+                    st.session_state.security_manager.notifier.config['discord_enabled'] = discord_enabled
+                    print(f"🔄 DEBUG: Updated SecurityManager notifier config")
+                    
+                    st.rerun()
+                else:
+                    print(f"❌ DEBUG: Failed to save Discord config")
+                    st.error("❌ Failed to save configuration")
+        
+        with col_test:
+            if st.button("🧪 Test Discord Alert", key="test_discord", use_container_width=True, disabled=not discord_webhook):
+                print(f"🧪 DEBUG: Testing Discord webhook...")
+                try:
+                    test_payload = {
+                        "embeds": [{
+                            "title": "🧪 Test Alert - Senthium AI",
+                            "description": "This is a test alert from your security system!",
+                            "color": 3066993,  # Green
+                            "timestamp": datetime.now().isoformat(),
+                            "footer": {"text": "Senthium AI Security System"}
+                        }]
+                    }
+                    response = requests.post(discord_webhook, json=test_payload, timeout=10)
+                    if response.status_code in [200, 204]:
+                        print(f"✅ DEBUG: Discord test alert sent successfully!")
+                        st.success("✅ Test alert sent to Discord!")
+                    else:
+                        print(f"❌ DEBUG: Discord test failed - Status {response.status_code}")
+                        st.error(f"❌ Failed: HTTP {response.status_code}")
+                except Exception as e:
+                    print(f"❌ DEBUG: Discord test exception: {e}")
+                    st.error(f"❌ Error: {e}")
     
     # Email Alerts
     with st.expander("✉️ Email (SMTP)", expanded=False):
@@ -573,27 +739,87 @@ elif page == "⚙️ Settings":
         - Custom SMTP server
         """)
         
+        # Load current values
+        current_email = st.session_state.config_manager.get('senthium.security.alerts.email', {})
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            smtp_server = st.text_input("SMTP Server", placeholder="smtp.gmail.com")
-            smtp_port = st.number_input("SMTP Port", value=587, min_value=1, max_value=65535)
-            smtp_username = st.text_input("Username/Email", placeholder="your.email@gmail.com")
+            smtp_server = st.text_input("SMTP Server", value=current_email.get('smtp_server', ''), placeholder="smtp.gmail.com")
+            smtp_port = st.number_input("SMTP Port", value=current_email.get('smtp_port', 587), min_value=1, max_value=65535)
+            smtp_username = st.text_input("Username/Email", value=current_email.get('username', ''), placeholder="your.email@gmail.com")
         
         with col2:
-            smtp_password = st.text_input("Password", type="password", help="Use app-specific password for Gmail")
-            recipient_email = st.text_input("Alert Recipient", placeholder="alerts@example.com")
-            email_enabled = st.checkbox("Enable Email Alerts", value=False)
+            smtp_password = st.text_input("Password", value=current_email.get('password', ''), type="password", help="Use app-specific password for Gmail")
+            recipient_email = st.text_input("Alert Recipient", value=current_email.get('recipient', ''), placeholder="alerts@example.com")
+            email_enabled = st.checkbox("Enable Email Alerts", value=current_email.get('enabled', False))
         
-        if st.button("💾 Save Email Config", key="save_email"):
-            if st.session_state.config_manager.update_email(
-                smtp_server, smtp_port, smtp_username, smtp_password, recipient_email, email_enabled
-            ):
-                st.success("✅ Email configuration saved!")
-                st.info("💡 Restart daemon to apply changes")
-                st.rerun()
-            else:
-                st.error("❌ Failed to save configuration")
+        col_save, col_test = st.columns(2)
+        
+        with col_save:
+            if st.button("💾 Save Email Config", key="save_email", use_container_width=True):
+                print(f"🔍 DEBUG: Saving Email - Enabled={email_enabled}, Server={smtp_server}, Port={smtp_port}")
+                print(f"🔍 DEBUG: Email - Username={smtp_username}, Recipient={recipient_email}")
+                
+                if st.session_state.config_manager.update_email(
+                    smtp_server, smtp_port, smtp_username, smtp_password, recipient_email, email_enabled
+                ):
+                    print(f"✅ DEBUG: Email config saved successfully!")
+                    st.success("✅ Email configuration saved!")
+                    st.info("💡 Restart daemon to apply changes")
+                    
+                    # Update notifier config
+                    st.session_state.security_manager.notifier.config['email_smtp_host'] = smtp_server
+                    st.session_state.security_manager.notifier.config['email_smtp_port'] = smtp_port
+                    st.session_state.security_manager.notifier.config['email_from'] = smtp_username
+                    st.session_state.security_manager.notifier.config['email_to'] = recipient_email
+                    st.session_state.security_manager.notifier.config['email_password'] = smtp_password
+                    st.session_state.security_manager.notifier.config['email_enabled'] = email_enabled
+                    print(f"🔄 DEBUG: Updated SecurityManager notifier email config")
+                    
+                    st.rerun()
+                else:
+                    print(f"❌ DEBUG: Failed to save Email config")
+                    st.error("❌ Failed to save configuration")
+        
+        with col_test:
+            test_disabled = not (smtp_server and smtp_username and smtp_password and recipient_email)
+            if st.button("🧪 Test Email Alert", key="test_email", use_container_width=True, disabled=test_disabled):
+                print(f"🧪 DEBUG: Testing Email SMTP connection...")
+                try:
+                    import smtplib
+                    from email.mime.text import MIMEText
+                    from email.mime.multipart import MIMEMultipart
+                    
+                    msg = MIMEMultipart()
+                    msg['From'] = smtp_username
+                    msg['To'] = recipient_email
+                    msg['Subject'] = "🧪 Test Alert - Senthium AI"
+                    
+                    body = """
+                    This is a test alert from your Senthium AI Security System!
+                    
+                    If you received this email, your SMTP configuration is working correctly.
+                    
+                    ---
+                    Senthium AI Security System
+                    """
+                    msg.attach(MIMEText(body, 'plain'))
+                    
+                    print(f"🔗 DEBUG: Connecting to {smtp_server}:{smtp_port}...")
+                    server = smtplib.SMTP(smtp_server, smtp_port)
+                    server.starttls()
+                    print(f"🔐 DEBUG: Logging in as {smtp_username}...")
+                    server.login(smtp_username, smtp_password)
+                    print(f"📧 DEBUG: Sending test email to {recipient_email}...")
+                    server.send_message(msg)
+                    server.quit()
+                    
+                    print(f"✅ DEBUG: Email test sent successfully!")
+                    st.success(f"✅ Test email sent to {recipient_email}!")
+                except Exception as e:
+                    print(f"❌ DEBUG: Email test exception: {e}")
+                    st.error(f"❌ Error: {e}")
     
     # Telegram Bot
     with st.expander("💬 Telegram Bot", expanded=False):
@@ -609,31 +835,78 @@ elif page == "⚙️ Settings":
         5. Get your chat ID from https://api.telegram.org/bot<TOKEN>/getUpdates
         """)
         
-        telegram_token = st.text_input("Bot Token", type="password", placeholder="123456:ABC-DEF...")
-        telegram_chat_id = st.text_input("Chat ID", placeholder="Your chat ID")
-        telegram_enabled = st.checkbox("Enable Telegram Alerts", value=False)
+        # Load current values
+        current_telegram = st.session_state.config_manager.get('senthium.security.alerts.telegram', {})
+        
+        telegram_token = st.text_input("Bot Token", value=current_telegram.get('bot_token', ''), type="password", placeholder="123456:ABC-DEF...")
+        telegram_chat_id = st.text_input("Chat ID", value=current_telegram.get('chat_id', ''), placeholder="Your chat ID")
+        telegram_enabled = st.checkbox("Enable Telegram Alerts", value=current_telegram.get('enabled', False))
         
         if st.button("💾 Save Telegram Config", key="save_telegram"):
+            print(f"🔍 DEBUG: Saving Telegram - Enabled={telegram_enabled}, Token={'SET' if telegram_token else 'EMPTY'}, ChatID={telegram_chat_id}")
+            
             if st.session_state.config_manager.update_telegram(telegram_token, telegram_chat_id, telegram_enabled):
+                print(f"✅ DEBUG: Telegram config saved successfully!")
                 st.success("✅ Telegram configuration saved!")
                 st.info("💡 Restart daemon to apply changes")
+                
+                # Update notifier config
+                st.session_state.security_manager.notifier.config['telegram_bot_token'] = telegram_token
+                st.session_state.security_manager.notifier.config['telegram_chat_id'] = telegram_chat_id
+                st.session_state.security_manager.notifier.config['telegram_enabled'] = telegram_enabled
+                print(f"🔄 DEBUG: Updated SecurityManager notifier telegram config")
+                
                 st.rerun()
             else:
+                print(f"❌ DEBUG: Failed to save Telegram config")
                 st.error("❌ Failed to save configuration")
     
     # Desktop Notifications
     with st.expander("🖥️ Desktop & System Alerts", expanded=False):
-        desktop_notif = st.checkbox("Windows Toast Notifications", value=True, help="Show Windows 10/11 notifications")
-        sound_alert = st.checkbox("Sound Alerts", value=False, help="Play alert sound on detection")
-        log_to_file = st.checkbox("Log Alerts to File", value=True, help="Save alerts to logs/security/alerts.jsonl")
+        # Load current values
+        current_alerts = st.session_state.config_manager.get('senthium.security.alerts', {})
+        
+        desktop_notif = st.checkbox("Windows Toast Notifications", value=current_alerts.get('desktop_notification', True), help="Show Windows 10/11 notifications")
+        sound_alert = st.checkbox("Sound Alerts", value=current_alerts.get('sound_alert', False), help="Play alert sound on detection")
+        log_to_file = st.checkbox("Log Alerts to File", value=current_alerts.get('log_to_file', True), help="Save alerts to logs/security/alerts.jsonl")
         
         if st.button("💾 Save System Config", key="save_system"):
+            print(f"🔍 DEBUG: Saving System Alerts - Desktop={desktop_notif}, Sound={sound_alert}, LogFile={log_to_file}")
+            
             if st.session_state.config_manager.update_desktop_alerts(desktop_notif, sound_alert, log_to_file):
+                print(f"✅ DEBUG: System alerts config saved successfully!")
                 st.success("✅ System configuration saved!")
                 st.info("💡 Restart daemon to apply changes")
+                
+                # Update notifier config
+                st.session_state.security_manager.notifier.config['desktop_notification'] = desktop_notif
+                st.session_state.security_manager.notifier.config['sound_alert'] = sound_alert
+                st.session_state.security_manager.notifier.config['log_to_file'] = log_to_file
+                print(f"🔄 DEBUG: Updated SecurityManager notifier system config")
+                
                 st.rerun()
             else:
+                print(f"❌ DEBUG: Failed to save system alerts config")
                 st.error("❌ Failed to save configuration")
+    
+    # View full configuration summary
+    st.divider()
+    
+    with st.expander("📋 View Alert Configuration Summary", expanded=False):
+        summary_text = summary_gen.print_summary(st.session_state.config_manager._config or st.session_state.config_manager.load())
+        st.code(summary_text, language="text")
+        
+        st.info(f"💾 Configuration details are also saved to: `config/alert_settings_summary.json`")
+        
+        # Download summary as JSON
+        summary_json = json.dumps(summary, indent=2)
+        st.download_button(
+            label="⬇️ Download Configuration as JSON",
+            data=summary_json,
+            file_name=f"senthium_alert_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            mime="application/json",
+            key="download_summary"
+        )
     
     st.markdown("---")
     

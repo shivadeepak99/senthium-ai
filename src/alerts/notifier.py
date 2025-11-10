@@ -23,17 +23,17 @@ try:
     if platform.system() == 'Windows':
         import winsound  # Built-in for Windows
         try:
-            from win10toast_click import ToastNotifier  # pip install win10toast-click (better fork)
+            from win10toast_click import ToastNotifier  # type: ignore # pip install win10toast-click (better fork)
             WINDOWS_TOAST_AVAILABLE = True
         except ImportError:
             try:
-                from win10toast import ToastNotifier  # Fallback to old version
+                from win10toast import ToastNotifier  # type: ignore # Fallback to old version
                 WINDOWS_TOAST_AVAILABLE = True
             except ImportError:
                 WINDOWS_TOAST_AVAILABLE = False
     else:
         try:
-            from plyer import notification  # pip install plyer (cross-platform)
+            from plyer import notification  # type: ignore # pip install plyer (cross-platform)
             PLYER_AVAILABLE = True
         except ImportError:
             PLYER_AVAILABLE = False

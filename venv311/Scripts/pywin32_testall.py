@@ -1,17 +1,17 @@
 """A test runner for pywin32"""
-import sys
+
 import os
 import site
 import subprocess
+import sys
 
 # locate the dirs based on where this script is - it may be either in the
 # source tree, or in an installed Python 'Scripts' tree.
-this_dir = os.path.dirname(__file__)
-site_packages = [
-    site.getusersitepackages(),
-] + site.getsitepackages()
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+site_packages = [site.getusersitepackages()] + site.getsitepackages()
 
 failures = []
+
 
 # Run a test using subprocess and wait for the result.
 # If we get an returncode != 0, we know that there was an error, but we don't
@@ -20,8 +20,10 @@ def run_test(script, cmdline_extras):
     dirname, scriptname = os.path.split(script)
     # some tests prefer to be run from their directory.
     cmd = [sys.executable, "-u", scriptname] + cmdline_extras
+    print("--- Running '%s' ---" % script)
+    sys.stdout.flush()
     result = subprocess.run(cmd, check=False, cwd=dirname)
-    print("*** Test script '%s' exited with %s" % (script, result.returncode))
+    print(f"*** Test script '{script}' exited with {result.returncode}")
     sys.stdout.flush()
     if result.returncode:
         failures.append(script)
@@ -41,7 +43,7 @@ def find_and_run(possible_locations, extras):
 def main():
     import argparse
 
-    code_directories = [this_dir] + site_packages
+    code_directories = [project_root] + site_packages
 
     parser = argparse.ArgumentParser(
         description="A script to trigger tests in all subprojects of PyWin32."
@@ -68,25 +70,24 @@ def main():
 
     args, remains = parser.parse_known_args()
 
-    # win32
-    maybes = [
-        os.path.join(directory, "win32", "test", "testall.py")
-        for directory in code_directories
-    ]
+    # win32, win32ui / Pythonwin
+
     extras = []
     if args.user_interaction:
-        extras += "-user-interaction"
+        extras.append("-user-interaction")
     extras.extend(remains)
-
-    find_and_run(maybes, extras)
+    scripts = [
+        "win32/test/testall.py",
+        "Pythonwin/pywin/test/all.py",
+    ]
+    for script in scripts:
+        maybes = [os.path.join(directory, script) for directory in code_directories]
+        find_and_run(maybes, extras)
 
     # win32com
     maybes = [
         os.path.join(directory, "win32com", "test", "testall.py")
-        for directory in [
-            os.path.join(this_dir, "com"),
-        ]
-        + site_packages
+        for directory in [os.path.join(project_root, "com")] + site_packages
     ]
     extras = remains + ["1"]  # only run "level 1" tests in CI
     find_and_run(maybes, extras)
@@ -112,7 +113,7 @@ def main():
         for failure in failures:
             print(">", failure)
         sys.exit(1)
-    print("All tests passed \o/")
+    print("All tests passed \\o/")
 
 
 if __name__ == "__main__":

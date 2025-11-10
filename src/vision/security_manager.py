@@ -67,7 +67,7 @@ class SecurityManager:
         self.system_actions = SystemActions()
         
         # State tracking
-        self.enabled = self.config.get('enable_security', False)
+        self.enabled = self.config.get('enabled', False)  # Fixed: was 'enable_security'
         self.check_interval = self.config.get('check_interval_seconds', 10)
         self.alert_cooldown = self.config.get('alert_cooldown_seconds', 300)
         self.last_check_time: Optional[datetime] = None

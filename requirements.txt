@@ -1,37 +1,55 @@
-# Core Dependencies
-psutil>=5.9.0          # System and process utilities
-pyyaml>=6.0           # YAML parser for config files
-jsonschema>=4.19.0    # JSON Schema validation for configs
+# ============================================
+# SENTHIUM AI SECURITY SYSTEM - REQUIREMENTS
+# ============================================
 
-# AI Vision & Security
-opencv-python>=4.8.0  # Computer vision library (face detection via DNN)
-pillow>=10.0.0        # Image processing
-numpy>=1.24.0         # Array operations for face encodings
-deepface>=0.0.79      # Face recognition with multiple models (Facenet, VGG-Face, ArcFace)
+# Core System Dependencies
+psutil                 # System and process utilities (CPU, memory, disk monitoring)
+pyyaml                 # YAML parser for config files
+jsonschema             # JSON Schema validation for configs
+setuptools             # Python package development
 
-# GUI
-streamlit>=1.28.0     # Web dashboard interface
+# AI Vision & Security 🤖🔒
+opencv-python          # Computer vision library (face detection via DNN)
+pillow                 # Image processing (PIL)
+numpy                  # Array operations for face encodings
+deepface               # Face recognition with multiple models (Facenet, VGG-Face, ArcFace)
+tensorflow             # Deep learning framework (required by DeepFace)
+tf-keras               # Keras API for TensorFlow
 
-# Alerts & Notifications
-discord-webhook>=1.3.0  # Discord alerts
-requests>=2.31.0      # HTTP requests for webhooks
+# GUI Dashboard
+streamlit              # Web dashboard interface
+altair<5               # IMPORTANT: Streamlit breaks with altair 5+
 
-# Testing
-pytest>=7.4.0         # Testing framework
-pytest-cov>=4.1.0     # Coverage plugin for pytest
-pytest-mock>=3.11.0   # Mocking plugin for pytest
+# Alerts & Notifications 📢
+discord-webhook        # Discord webhook alerts
+requests               # HTTP requests for webhooks/APIs
+playsound==1.2.2       # IMPORTANT: v1.3.0+ is broken, must use 1.2.2
 
-# Development Tools
-black>=23.7.0         # Code formatter
-flake8>=6.1.0         # Linter
-mypy>=1.5.0           # Type checker
+# Cross-platform Notifications
+plyer; platform_system!='Windows'  # Cross-platform notifications (Linux/macOS)
+
+# Testing Framework (optional)
+pytest                 # Testing framework
+pytest-cov             # Coverage plugin for pytest
+pytest-mock            # Mocking plugin for pytest
+
+# Development Tools (optional)
+black                  # Code formatter
+flake8                 # Linter
+mypy                   # Type checker
 
 # Logging
-colorlog>=6.7.0       # Colored logging output
+colorlog               # Colored logging output
 
-# Linux-specific (will be conditional later)
-# dbus-python>=1.3.2  # For systemd integration (Linux only)
+# ============================================
+# WINDOWS-SPECIFIC DEPENDENCIES
+# ============================================
+# Only installed on Windows systems
 
-# Windows-specific (installed on all platforms, no-op on Linux/macOS)
-pywin32>=306; platform_system=='Windows'  # For Windows service, Named Pipes & API
-win10toast-click>=0.1.0; platform_system=='Windows'  # Windows notifications (better than win10toast)
+pywin32; platform_system=='Windows'              # Windows API (Named Pipes, Services, Lock Screen)
+win10toast-click; platform_system=='Windows'     # Windows 10/11 toast notifications
+
+# ============================================
+# LINUX-SPECIFIC DEPENDENCIES (Future)
+# ============================================
+# dbus-python; platform_system=='Linux'  # For systemd integration

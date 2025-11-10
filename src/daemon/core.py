@@ -525,9 +525,14 @@ class SenthiumDaemon:
             self._shutdown_requested = True
         except Exception as e:
             self.logger.exception(f"💥 Fatal error in main loop: {e}")
+            print(f"[DEBUG] Exception type: {type(e).__name__}")
+            print(f"[DEBUG] Exception: {e}")
+            import traceback
+            traceback.print_exc()
             raise
-        
         finally:
+            print("[DEBUG] Exited main loop")
+            print(f"[DEBUG] _running={self._running}, _shutdown_requested={self._shutdown_requested}")
             self._shutdown()
     
     def _shutdown(self):

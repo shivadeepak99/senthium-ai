@@ -82,7 +82,7 @@ def start_daemon(
         
         # Get Python executable and daemon script path
         python_exe = sys.executable
-        daemon_script = Path(__file__).parent.parent / "daemon" / "core.py"
+        daemon_script = Path(__file__).parent / "core.py"
         
         # Build command
         cmd = [
@@ -92,9 +92,14 @@ def start_daemon(
             "--log-level", log_level
         ]
         
-        # Set up environment with PYTHONPATH
+        # Set up environment with PYTHONPATH pointing to project root
         env = os.environ.copy()
-        env['PYTHONPATH'] = str(Path(__file__).parent.parent)
+        project_root = str(Path(__file__).parent.parent.parent)  # Go up to senthium-ai-modern/
+        env['PYTHONPATH'] = project_root
+        
+        print(f"[DEBUG] Python exe: {python_exe}")
+        print(f"[DEBUG] Daemon script: {daemon_script}")
+        print(f"[DEBUG] PYTHONPATH: {project_root}")
         
         try:
             # Start daemon as background process

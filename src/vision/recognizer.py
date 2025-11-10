@@ -25,7 +25,7 @@ class FaceRecognizer:
     def __init__(
         self,
         authorized_faces_file: str = "config/faces/authorized.json",
-        tolerance: float = 0.75
+        tolerance: float = 0.6
     ):
         """
         Initialize face recognizer.
@@ -36,6 +36,8 @@ class FaceRecognizer:
         """
         self.authorized_faces_file = Path(authorized_faces_file)
         self.tolerance = tolerance
+        
+        print(f"[DEBUG] FaceRecognizer initialized with tolerance={tolerance}")
         self.authorized_encodings: Dict[str, List[np.ndarray]] = {}
         self.recognition_count = 0
         
@@ -164,6 +166,8 @@ class FaceRecognizer:
                 # Calculate face distance (lower = more similar) - Euclidean distance
                 distance = np.linalg.norm(known_encoding - face_encoding)
                 
+                print(f"[DEBUG] Comparing to {user_name}: distance={distance:.4f}, tolerance={self.tolerance}")
+                
                 if distance < best_match_distance:
                     best_match_distance = distance
                     best_match_name = user_name
@@ -171,9 +175,11 @@ class FaceRecognizer:
         # Check if best match is within tolerance
         if best_match_distance <= self.tolerance and best_match_name is not None:
             confidence = 1.0 - best_match_distance
+            print(f"[DEBUG] ✅ MATCH FOUND: {best_match_name} (distance={best_match_distance:.4f}, confidence={confidence:.2f})")
             logger.debug(f"✅ Recognized: {best_match_name} (confidence: {confidence:.2f})")
             return (best_match_name, confidence)
         
+        print(f"[DEBUG] ❌ NO MATCH: closest={best_match_name}, distance={best_match_distance:.4f} > tolerance={self.tolerance}")
         logger.debug(f"❌ Unknown face (closest: {best_match_name}, distance: {best_match_distance:.2f})")
         return None
     
