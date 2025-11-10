@@ -687,13 +687,13 @@ elif page == "⚙️ Settings":
             if st.button("💾 Save Discord Config", key="save_discord", use_container_width=True):
                 print(f"🔍 DEBUG: Saving Discord - Enabled={discord_enabled}, URL={'SET' if discord_webhook else 'EMPTY'}")
                 
-                if st.session_state.config_manager.update_discord(discord_webhook, discord_enabled):
+                if st.session_state.config_manager.update_discord(discord_webhook or "", discord_enabled):
                     print(f"✅ DEBUG: Discord config saved successfully!")
                     st.success("✅ Discord configuration saved!")
                     st.info("💡 Restart daemon to apply changes")
                     
                     # Update notifier config
-                    st.session_state.security_manager.notifier.config['discord_webhook_url'] = discord_webhook
+                    st.session_state.security_manager.notifier.config['discord_webhook_url'] = discord_webhook or ""
                     st.session_state.security_manager.notifier.config['discord_enabled'] = discord_enabled
                     print(f"🔄 DEBUG: Updated SecurityManager notifier config")
                     
@@ -715,7 +715,7 @@ elif page == "⚙️ Settings":
                             "footer": {"text": "Senthium AI Security System"}
                         }]
                     }
-                    response = requests.post(discord_webhook, json=test_payload, timeout=10)
+                    response = requests.post(discord_webhook or "", json=test_payload, timeout=10)
                     if response.status_code in [200, 204]:
                         print(f"✅ DEBUG: Discord test alert sent successfully!")
                         st.success("✅ Test alert sent to Discord!")
@@ -762,17 +762,17 @@ elif page == "⚙️ Settings":
                 print(f"🔍 DEBUG: Email - Username={smtp_username}, Recipient={recipient_email}")
                 
                 if st.session_state.config_manager.update_email(
-                    smtp_server, smtp_port, smtp_username, smtp_password, recipient_email, email_enabled
+                    smtp_server or "", smtp_port, smtp_username or "", smtp_password or "", recipient_email or "", email_enabled
                 ):
                     print(f"✅ DEBUG: Email config saved successfully!")
                     st.success("✅ Email configuration saved!")
                     st.info("💡 Restart daemon to apply changes")
                     
                     # Update notifier config
-                    st.session_state.security_manager.notifier.config['email_smtp_host'] = smtp_server
+                    st.session_state.security_manager.notifier.config['email_smtp_host'] = smtp_server or ""
                     st.session_state.security_manager.notifier.config['email_smtp_port'] = smtp_port
-                    st.session_state.security_manager.notifier.config['email_from'] = smtp_username
-                    st.session_state.security_manager.notifier.config['email_to'] = recipient_email
+                    st.session_state.security_manager.notifier.config['email_from'] = smtp_username or ""
+                    st.session_state.security_manager.notifier.config['email_to'] = recipient_email or ""
                     st.session_state.security_manager.notifier.config['email_password'] = smtp_password
                     st.session_state.security_manager.notifier.config['email_enabled'] = email_enabled
                     print(f"🔄 DEBUG: Updated SecurityManager notifier email config")
@@ -792,8 +792,8 @@ elif page == "⚙️ Settings":
                     from email.mime.multipart import MIMEMultipart
                     
                     msg = MIMEMultipart()
-                    msg['From'] = smtp_username
-                    msg['To'] = recipient_email
+                    msg['From'] = smtp_username or ""
+                    msg['To'] = recipient_email or ""
                     msg['Subject'] = "🧪 Test Alert - Senthium AI"
                     
                     body = """
@@ -807,10 +807,10 @@ elif page == "⚙️ Settings":
                     msg.attach(MIMEText(body, 'plain'))
                     
                     print(f"🔗 DEBUG: Connecting to {smtp_server}:{smtp_port}...")
-                    server = smtplib.SMTP(smtp_server, smtp_port)
+                    server = smtplib.SMTP(smtp_server or "", smtp_port)
                     server.starttls()
                     print(f"🔐 DEBUG: Logging in as {smtp_username}...")
-                    server.login(smtp_username, smtp_password)
+                    server.login(smtp_username or "", smtp_password or "")
                     print(f"📧 DEBUG: Sending test email to {recipient_email}...")
                     server.send_message(msg)
                     server.quit()
@@ -845,14 +845,14 @@ elif page == "⚙️ Settings":
         if st.button("💾 Save Telegram Config", key="save_telegram"):
             print(f"🔍 DEBUG: Saving Telegram - Enabled={telegram_enabled}, Token={'SET' if telegram_token else 'EMPTY'}, ChatID={telegram_chat_id}")
             
-            if st.session_state.config_manager.update_telegram(telegram_token, telegram_chat_id, telegram_enabled):
+            if st.session_state.config_manager.update_telegram(telegram_token or "", telegram_chat_id or "", telegram_enabled):
                 print(f"✅ DEBUG: Telegram config saved successfully!")
                 st.success("✅ Telegram configuration saved!")
                 st.info("💡 Restart daemon to apply changes")
                 
                 # Update notifier config
-                st.session_state.security_manager.notifier.config['telegram_bot_token'] = telegram_token
-                st.session_state.security_manager.notifier.config['telegram_chat_id'] = telegram_chat_id
+                st.session_state.security_manager.notifier.config['telegram_bot_token'] = telegram_token or ""
+                st.session_state.security_manager.notifier.config['telegram_chat_id'] = telegram_chat_id or ""
                 st.session_state.security_manager.notifier.config['telegram_enabled'] = telegram_enabled
                 print(f"🔄 DEBUG: Updated SecurityManager notifier telegram config")
                 
