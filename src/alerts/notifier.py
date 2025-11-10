@@ -149,9 +149,26 @@ class AlertNotifier:
             if self._send_discord(alert):
                 success = True
         
-        # Email
-        if 'email' in channels and self.config.get('email_smtp_host'):
-            if self._send_email(alert):
+        # Email (support both old and new config formats)
+        # Config can be either:
+        # 1. security.alerts dict (from daemon) → email is at config.email
+        # 2. Full config (from streamlit) → email is at config.security.alerts.email
+        alerts_config = self.config.get('alerts', self.config)  # Get alerts section if exists, else use root
+        email_config = alerts_config.get('email', {})
+        
+        has_email_config = (
+            self.config.get('email_smtp_host') or  # Old flat format
+            alerts_config.get('email_smtp_host') or  # Old flat in alerts
+            email_config.get('smtp_server')  # New nested format
+        )
+        print(f"[DEBUG ALERT] Email config check: has_email_config={has_email_config}, 'email' in channels={'email' in channels}")
+        print(f"[DEBUG ALERT] alerts_config keys: {list(alerts_config.keys())}")
+        print(f"[DEBUG ALERT] email_config keys: {list(email_config.keys())}")
+        if 'email' in channels and has_email_config:
+            print(f"[DEBUG ALERT] Calling _send_email()...")
+            email_result = self._send_email(alert)
+            print(f"[DEBUG ALERT] Email send result: {email_result}")
+            if email_result:
                 success = True
         
         # Telegram bot
@@ -241,14 +258,35 @@ class AlertNotifier:
     def _send_email(self, alert: SecurityAlert) -> bool:
         """Send alert via email (SMTP)."""
         try:
-            smtp_host = self.config.get('email_smtp_host')
-            smtp_port = self.config.get('email_smtp_port', 587)
-            email_from = self.config.get('email_from')
-            email_to = self.config.get('email_to')
-            email_password = self.config.get('email_password')
+            print(f"[DEBUG EMAIL] Starting email send process...")
+            
+            # Support both old flat config and new nested email config
+            # Config can be structured as:
+            # 1. security.alerts dict (from daemon) → email at config.email
+            # 2. Full config (from streamlit) → email at config.security.alerts.email
+            alerts_config = self.config.get('alerts', self.config)
+            email_config = alerts_config.get('email', {})
+            
+            # Try new nested format first, fallback to old flat format
+            smtp_host = email_config.get('smtp_server') or alerts_config.get('email_smtp_host') or self.config.get('email_smtp_host')
+            smtp_port = email_config.get('smtp_port') or alerts_config.get('email_smtp_port', 587) or self.config.get('email_smtp_port', 587)
+            email_from = email_config.get('username') or alerts_config.get('email_from') or self.config.get('email_from')
+            email_to = email_config.get('recipient') or alerts_config.get('email_to') or self.config.get('email_to')
+            email_password = email_config.get('password') or alerts_config.get('email_password') or self.config.get('email_password')
+            use_tls = email_config.get('use_tls', True)
+            
+            print(f"[DEBUG EMAIL] Config: smtp_host={smtp_host}, smtp_port={smtp_port}, from={email_from}, to={email_to}")
+            
+            # Check if email is enabled
+            email_enabled = email_config.get('enabled', True)
+            if not email_enabled:
+                print(f"[DEBUG EMAIL] Email disabled in config!")
+                logger.debug("📧 Email alerts disabled in config")
+                return False
             
             # Type guard: ensure all required fields are strings
             if not all([smtp_host, email_from, email_to, email_password]):
+                print(f"[DEBUG EMAIL] Incomplete config! host={bool(smtp_host)}, from={bool(email_from)}, to={bool(email_to)}, pass={bool(email_password)}")
                 logger.warning("⚠️ Email config incomplete, skipping")
                 return False
             
@@ -281,16 +319,24 @@ This is an automated alert from Senthium AI Security System.
             
             msg.attach(MIMEText(body, 'plain'))
             
+            print(f"[DEBUG EMAIL] About to connect to SMTP server...")
             # Send email (type is now guaranteed)
             with smtplib.SMTP(smtp_host, smtp_port) as server:
+                print(f"[DEBUG EMAIL] Connected! Starting TLS...")
                 server.starttls()
+                print(f"[DEBUG EMAIL] Logging in...")
                 server.login(email_from, email_password)
+                print(f"[DEBUG EMAIL] Sending message...")
                 server.send_message(msg)
+                print(f"[DEBUG EMAIL] Message sent successfully!")
             
             logger.info("✅ Alert sent via email")
             return True
             
         except Exception as e:
+            print(f"[DEBUG EMAIL] ERROR: {e}")
+            import traceback
+            traceback.print_exc()
             logger.error(f"❌ Email alert failed: {e}")
             return False
     
@@ -502,8 +548,13 @@ This is an automated alert from Senthium AI Security System.
         
         if self.config.get('discord_webhook_url'):
             configured_channels.append('discord')
-        if self.config.get('email_smtp_host'):
+        
+        # Check email config (both old and new formats, with alerts section support)
+        alerts_config = self.config.get('alerts', self.config)
+        email_config = alerts_config.get('email', {})
+        if self.config.get('email_smtp_host') or alerts_config.get('email_smtp_host') or email_config.get('smtp_server'):
             configured_channels.append('email')
+        
         if self.config.get('telegram_bot_token'):
             configured_channels.append('telegram')
         if DESKTOP_NOTIFICATIONS_AVAILABLE:

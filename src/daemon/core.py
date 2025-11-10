@@ -466,20 +466,27 @@ class SenthiumDaemon:
                         if self.stats['poll_count'] % self.security_check_interval == 0:
                             security_result = self.security_manager.perform_security_check()
                             
-                            # Log security events
-                            if security_result and security_result['unknown_faces_count'] > 0:
-                                self.logger.warning(
-                                    f"⚠️ SECURITY ALERT! {security_result['unknown_faces_count']} "
-                                    f"unauthorized face(s) detected!"
-                                )
-                            elif security_result and security_result['authorized_faces_count'] > 0:
-                                self.logger.info(
-                                    f"✅ Authorized user recognized: {security_result['detected_faces_count']} face(s)"
-                                )
-                            elif security_result and security_result['detected_faces_count'] == 0:
-                                self.logger.debug("👻 No faces detected in security check")
+                            # Log security events (handle all response types)
+                            if security_result:
+                                status = security_result.get('status', 'success')
+                                
+                                if status == 'error':
+                                    self.logger.error(f"❌ Security check error: {security_result.get('error', 'Unknown')}")
+                                elif status == 'no_faces':
+                                    self.logger.debug("👻 No faces detected in security check")
+                                elif security_result.get('unknown_faces_count', 0) > 0:
+                                    self.logger.warning(
+                                        f"⚠️ SECURITY ALERT! {security_result['unknown_faces_count']} "
+                                        f"unauthorized face(s) detected!"
+                                    )
+                                elif security_result.get('authorized_faces_count', 0) > 0:
+                                    self.logger.info(
+                                        f"✅ Authorized user recognized: {security_result.get('detected_faces_count', 0)} face(s)"
+                                    )
                     except Exception as e:
                         self.logger.error(f"Security check failed: {e}")
+                        import traceback
+                        traceback.print_exc()
                 
                 # State machine logic
                 if self.state == DaemonState.MONITORING:
