@@ -79,16 +79,13 @@ class SenthiumDaemon:
             self.failsafe = FailsafeTimer(max_duration_seconds=max_awake_duration)
             
             # Initialize IPC server for CLI communication
-            self.ipc_server = IPCServer()
+            # DISABLED: IPC server blocks daemon main loop (poll() is blocking)
+            # TODO: Fix IPC to use non-blocking I/O or move to separate thread
+            self.ipc_server = None
+            self.logger.info("⚠️  IPC server disabled (daemon-only mode, use Streamlit UI for control)")
             
             # Initialize activity logger
             self.activity_logger = ActivityLogger()
-            try:
-                self.ipc_server.start()
-                self.logger.info("✅ IPC server started (CLI communication enabled)")
-            except Exception as e:
-                self.logger.warning(f"⚠️  Failed to start IPC server: {e} (CLI commands will not work)")
-                self.ipc_server = None
             
             # 🔒 Initialize AI Security (v0.6.0)
             self.security_enabled = False
@@ -299,18 +296,10 @@ class SenthiumDaemon:
             )
     
     def _poll_ipc(self):
-        """Poll for incoming IPC messages (non-blocking)"""
-        if not self.ipc_server:
-            return
-        
-        try:
-            result = self.ipc_server.poll()
-            if result:
-                message, client_context = result
-                response = self._handle_ipc_message(message)
-                self.ipc_server.send_response(response, client_context)
-        except Exception as e:
-            self.logger.error(f"Error in IPC polling: {e}")
+        """Poll for incoming IPC messages (DISABLED - IPC blocking issue)"""
+        # IPC disabled due to blocking poll() call
+        # Use Streamlit UI for daemon control instead
+        return
     
     def _handle_monitoring_state(self, metrics):
         """
@@ -453,17 +442,22 @@ class SenthiumDaemon:
                 print(f"[DEBUG] Loop iteration {self.stats['poll_count'] + 1}")
                 self.stats['poll_count'] += 1
                 
+                print(f"[DEBUG] About to poll IPC...")
                 # Poll IPC for CLI commands (non-blocking)
                 self._poll_ipc()
                 
+                print(f"[DEBUG] About to gather metrics...")
                 # Gather system metrics
                 try:
                     metrics = self.monitor.get_current_state()
+                    print(f"[DEBUG] Got metrics: CPU={metrics.cpu_percent}%")
                 except Exception as e:
                     self.logger.error(f"Failed to gather metrics: {e}")
+                    print(f"[DEBUG] Metrics failed: {e}")
                     time.sleep(self.poll_interval)
                     continue
                 
+                print(f"[DEBUG] About to check security (enabled={self.security_enabled})...")
                 # 🔒 AI SECURITY CHECK (v0.6.0)
                 # Perform face recognition security check if enabled
                 if self.security_enabled and self.security_manager is not None:
@@ -479,9 +473,11 @@ class SenthiumDaemon:
                                     f"unauthorized face(s) detected!"
                                 )
                             elif security_result and security_result['authorized_faces_count'] > 0:
-                                self.logger.debug(
+                                self.logger.info(
                                     f"✅ Authorized user recognized: {security_result['detected_faces_count']} face(s)"
                                 )
+                            elif security_result and security_result['detected_faces_count'] == 0:
+                                self.logger.debug("👻 No faces detected in security check")
                     except Exception as e:
                         self.logger.error(f"Security check failed: {e}")
                 
