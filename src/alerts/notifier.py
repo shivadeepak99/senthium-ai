@@ -319,6 +319,25 @@ This is an automated alert from Senthium AI Security System.
             
             msg.attach(MIMEText(body, 'plain'))
             
+            # 📸 ATTACH INTRUDER PHOTO (if snapshot exists)
+            if alert.snapshot_path and Path(alert.snapshot_path).exists():
+                try:
+                    print(f"[DEBUG EMAIL] Attaching snapshot: {alert.snapshot_path}")
+                    with open(alert.snapshot_path, 'rb') as img_file:
+                        img_data = img_file.read()
+                        img = MIMEImage(img_data)
+                        
+                        # Set filename for attachment
+                        snapshot_filename = Path(alert.snapshot_path).name
+                        img.add_header('Content-Disposition', 'attachment', filename=snapshot_filename)
+                        img.add_header('Content-ID', f'<{snapshot_filename}>')
+                        
+                        msg.attach(img)
+                        print(f"[DEBUG EMAIL] ✅ Photo attached: {snapshot_filename}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to attach snapshot: {e}")
+                    print(f"[DEBUG EMAIL] ⚠️ Failed to attach photo: {e}")
+            
             print(f"[DEBUG EMAIL] About to connect to SMTP server...")
             # Send email (type is now guaranteed)
             with smtplib.SMTP(smtp_host, smtp_port) as server:
