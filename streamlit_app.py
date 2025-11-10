@@ -997,10 +997,10 @@ elif page == "⚙️ Settings":
         recognition_tolerance = st.slider(
             "Recognition Tolerance",
             min_value=0.3,
-            max_value=0.9,
-            value=0.6,
-            step=0.05,
-            help="Lower = stricter matching (0.6 recommended)"
+            max_value=15.0,  # Increased to allow testing with high variance
+            value=10.0,  # Start high for testing
+            step=0.5,
+            help="Distance threshold for face matching (lower = stricter, higher = more lenient)"
         )
     
     with col2:
