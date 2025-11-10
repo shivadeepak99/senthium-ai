@@ -126,8 +126,10 @@ class FaceDetector:
             face_locations = []
             
             # Parse detections
+            print(f"[DEBUG] DNN detected {detections.shape[2]} potential faces")
             for i in range(0, detections.shape[2]):
                 confidence = detections[0, 0, i, 2]
+                print(f"[DEBUG] Face {i}: confidence={confidence:.4f}, threshold={self.confidence_threshold}")
                 
                 if confidence > self.confidence_threshold:
                     # Get bounding box
@@ -136,7 +138,9 @@ class FaceDetector:
                     
                     # Convert to (top, right, bottom, left) format
                     face_locations.append((startY, endX, endY, startX))
+                    print(f"[DEBUG] ✅ Face accepted: box=({startY}, {endX}, {endY}, {startX})")
             
+            print(f"[DEBUG] Total faces accepted: {len(face_locations)}")
             self.detection_count += 1
             
             if face_locations:
@@ -183,25 +187,46 @@ class FaceDetector:
             encodings = []
             
             for (top, right, bottom, left) in face_locations:
-                # Extract face region
-                face = image[top:bottom, left:right]
+                # Extract face region with some padding
+                face_height = bottom - top
+                face_width = right - left
+                
+                # Add 20% padding to ensure we get full face
+                padding_h = int(face_height * 0.2)
+                padding_w = int(face_width * 0.2)
+                
+                # Calculate padded coordinates (with boundary checks)
+                top_padded = max(0, top - padding_h)
+                bottom_padded = min(image.shape[0], bottom + padding_h)
+                left_padded = max(0, left - padding_w)
+                right_padded = min(image.shape[1], right + padding_w)
+                
+                # Extract padded face region
+                face = image[top_padded:bottom_padded, left_padded:right_padded]
                 
                 if face.size == 0:
                     continue
                 
+                # CRITICAL: Resize to consistent size before DeepFace to ensure stable embeddings
+                # DeepFace will resize internally, but we normalize first for consistency
+                face_resized = cv2.resize(face, (224, 224))  # Standard input size
+                
                 try:
-                    # Use DeepFace to extract embeddings
-                    # enforce_detection=False because we already detected the face
+                    # DEBUG: Log face region size
+                    print(f"[DEBUG] Face region (padded): {face.shape}, resized to: {face_resized.shape}")
+                    
+                    # Use DeepFace to extract embeddings (without alignment to avoid detection issues)
                     embedding_objs = DeepFace.represent(
-                        img_path=face,
+                        img_path=face_resized,
                         model_name=model_name,
                         enforce_detection=False,
-                        detector_backend='skip'  # We already detected, skip re-detection
+                        detector_backend='skip'
                     )
                     
                     # DeepFace returns list of dicts
                     if embedding_objs and len(embedding_objs) > 0:
                         embedding = np.array(embedding_objs[0]['embedding'])
+                        print(f"[DEBUG] Generated embedding: shape={embedding.shape}, first 5 values={embedding[:5]}")
                         encodings.append(embedding)
                     
                 except Exception as e:

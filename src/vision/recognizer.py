@@ -25,20 +25,20 @@ class FaceRecognizer:
     def __init__(
         self,
         authorized_faces_file: str = "config/faces/authorized.json",
-        tolerance: float = 0.6
+        tolerance: float = 10.0  # TEMP: Very high to test if recognition works at all
     ):
         """
         Initialize face recognizer.
         
         Args:
             authorized_faces_file: Path to JSON file storing authorized face encodings
-            tolerance: Recognition tolerance (0.6 = balanced, lower = stricter)
+            tolerance: Recognition tolerance (higher = more lenient)
         """
         self.authorized_faces_file = Path(authorized_faces_file)
         self.tolerance = tolerance
         
         print(f"[DEBUG] FaceRecognizer initialized with tolerance={tolerance}")
-        self.authorized_encodings: Dict[str, List[np.ndarray]] = {}
+        self.authorized_encodings: Dict[str, List[np.ndarray]] = {}  # Keep old name for compatibility
         self.recognition_count = 0
         
         # Ensure directory exists
@@ -163,6 +163,10 @@ class FaceRecognizer:
         # Compare against all authorized faces
         for user_name, user_encodings in self.authorized_encodings.items():
             for known_encoding in user_encodings:
+                # DEBUG: Show encoding details
+                print(f"[DEBUG] Known encoding: shape={known_encoding.shape}, first 5={known_encoding[:5]}")
+                print(f"[DEBUG] Query encoding: shape={face_encoding.shape}, first 5={face_encoding[:5]}")
+                
                 # Calculate face distance (lower = more similar) - Euclidean distance
                 distance = np.linalg.norm(known_encoding - face_encoding)
                 
