@@ -9,6 +9,7 @@ import json
 import requests
 import smtplib
 import platform
+import socket
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List
@@ -17,6 +18,13 @@ from dataclasses import dataclass, asdict
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
+
+# Optional: psutil for CPU/RAM stats
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
 
 # Optional imports for additional alert methods
 try:
@@ -295,17 +303,114 @@ class AlertNotifier:
                 logger.warning("⚠️ Email config has invalid types, skipping")
                 return False
             
-            # Create email
-            msg = MIMEMultipart()
+            # Determine severity and styling
+            severity_map = {
+                'unauthorized_access': ('CRITICAL', '🔴', '#dc3545', '#f8d7da'),
+                'unknown_face': ('WARNING', '⚠️', '#ffc107', '#fff3cd'),
+                'no_face': ('INFO', '👻', '#17a2b8', '#d1ecf1'),
+                'multiple_faces': ('WARNING', '⚠️', '#ffc107', '#fff3cd'),
+            }
+            severity, icon, border_color, bg_color = severity_map.get(
+                alert.alert_type.value, 
+                ('INFO', '📊', '#17a2b8', '#d1ecf1')
+            )
+            
+            # 💻 Gather system info
+            try:
+                pc_name = platform.node()
+                try:
+                    ip_address = socket.gethostbyname(socket.gethostname())
+                except:
+                    ip_address = "Unknown"
+                os_info = f"{platform.system()} {platform.release()}"
+                
+                if PSUTIL_AVAILABLE:
+                    cpu_percent = psutil.cpu_percent(interval=0.1)
+                    mem = psutil.virtual_memory()
+                    ram_used = f"{mem.used / (1024**3):.1f} GB"
+                    ram_total = f"{mem.total / (1024**3):.1f} GB"
+                    ram_percent = mem.percent
+                else:
+                    cpu_percent = None
+                    ram_used = ram_total = "N/A"
+                    ram_percent = None
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to gather system info: {e}")
+                pc_name = "Unknown"
+                ip_address = "Unknown"
+                os_info = "Unknown"
+                cpu_percent = None
+                ram_used = ram_total = "N/A"
+                ram_percent = None
+            
+            # 📈 Read recent alert history
+            recent_alerts = []
+            recent_alerts_html = ""
+            try:
+                alerts_log = Path("logs/security/alerts.jsonl")
+                if alerts_log.exists():
+                    with open(alerts_log, 'r') as f:
+                        lines = f.readlines()
+                        # Get last 5 alerts
+                        for line in lines[-5:]:
+                            try:
+                                alert_data = json.loads(line)
+                                recent_alerts.append(alert_data)
+                            except:
+                                continue
+                    
+                    # Build timeline HTML
+                    if recent_alerts:
+                        timeline_items = []
+                        for a in reversed(recent_alerts):
+                            alert_type = a.get('alert_type', 'unknown')
+                            if alert_type == 'authorized':
+                                border_color_timeline = '#28a745'
+                                icon_timeline = '✅'
+                            elif 'unauthorized' in alert_type:
+                                border_color_timeline = '#dc3545'
+                                icon_timeline = '🚨'
+                            else:
+                                border_color_timeline = '#6c757d'
+                                icon_timeline = '👻'
+                            
+                            timeline_items.append(f'''
+                            <div style="padding: 10px; margin-bottom: 8px; background-color: white; border-left: 4px solid {border_color_timeline}; border-radius: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-weight: 600; color: #333;">{a.get('timestamp', 'Unknown')[:19]}</span>
+                                    <span style="font-size: 12px; color: #6c757d;">{icon_timeline} {alert_type.replace('_', ' ').title()}</span>
+                                </div>
+                                <div style="margin-top: 5px; font-size: 13px; color: #666;">{a.get('message', 'No message')}</div>
+                            </div>
+                            ''')
+                        
+                        recent_alerts_html = f'''
+                        <tr>
+                            <td style="padding: 30px; background-color: white;">
+                                <h2 style="margin: 0 0 20px 0; color: #333; font-size: 20px; border-bottom: 2px solid {border_color}; padding-bottom: 10px;">
+                                    📈 RECENT ACTIVITY
+                                </h2>
+                                <div style="background-color: #f8f9fa; border-radius: 6px; padding: 15px;">
+                                    {''.join(timeline_items)}
+                                </div>
+                            </td>
+                        </tr>
+                        '''
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to read alert history: {e}")
+            
+            # Create HTML + Plain text email
+            msg = MIMEMultipart('alternative')
             msg['From'] = email_from
             msg['To'] = email_to
-            msg['Subject'] = f"🚨 Senthium Alert: {alert.alert_type.value.replace('_', ' ').title()}"
+            msg['Subject'] = f"{icon} Senthium Alert: {alert.alert_type.value.replace('_', ' ').title()}"
             
-            # Email body
-            body = f"""
+            # Plain text version (fallback)
+            text_body = f"""
 Senthium Security Alert
 =======================
 
+Severity: {severity}
 Type: {alert.alert_type.value.replace('_', ' ').title()}
 Time: {alert.timestamp}
 Message: {alert.message}
@@ -315,9 +420,137 @@ Confidence: {f"{alert.confidence:.1%}" if alert.confidence else "N/A"}
 
 ---
 This is an automated alert from Senthium AI Security System.
+View in HTML email client for rich formatting and photos.
 """
             
-            msg.attach(MIMEText(body, 'plain'))
+            # HTML version (gorgeous! 💅)
+            html_body = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, {border_color} 0%, {border_color}dd 100%); padding: 30px; text-align: center;">
+                            <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 600;">
+                                {icon} SENTHIUM SECURITY ALERT
+                            </h1>
+                            <p style="margin: 10px 0 0 0; color: white; font-size: 16px; opacity: 0.95;">
+                                Status: {alert.alert_type.value.replace('_', ' ').upper()}
+                            </p>
+                            <div style="margin-top: 15px; background-color: rgba(255,255,255,0.2); display: inline-block; padding: 8px 20px; border-radius: 20px;">
+                                <span style="color: white; font-weight: 600; font-size: 14px;">Severity: {severity}</span>
+                            </div>
+                        </td>
+                    </tr>
+                    
+                    <!-- Snapshot Image -->
+                    {f'''
+                    <tr>
+                        <td style="padding: 0; text-align: center; background-color: #000;">
+                            <img src="cid:{Path(alert.snapshot_path).name if alert.snapshot_path else 'snapshot.jpg'}" 
+                                 alt="Security Snapshot" 
+                                 style="max-width: 100%; height: auto; display: block; margin: 0 auto;">
+                        </td>
+                    </tr>
+                    ''' if alert.snapshot_path and Path(alert.snapshot_path).exists() else ''}
+                    
+                    <!-- Incident Details -->
+                    <tr>
+                        <td style="padding: 30px; background-color: {bg_color};">
+                            <h2 style="margin: 0 0 20px 0; color: #333; font-size: 20px; border-bottom: 2px solid {border_color}; padding-bottom: 10px;">
+                                📊 INCIDENT DETAILS
+                            </h2>
+                            <table width="100%" cellpadding="8" cellspacing="0" style="background-color: white; border-radius: 6px; overflow: hidden;">
+                                <tr style="background-color: #f8f9fa;">
+                                    <td style="padding: 12px; font-weight: 600; color: #555; border-bottom: 1px solid #dee2e6; width: 40%;">⏰ Time</td>
+                                    <td style="padding: 12px; color: #333; border-bottom: 1px solid #dee2e6;">{alert.timestamp}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 12px; font-weight: 600; color: #555; border-bottom: 1px solid #dee2e6;">📝 Message</td>
+                                    <td style="padding: 12px; color: #333; border-bottom: 1px solid #dee2e6;">{alert.message}</td>
+                                </tr>
+                                <tr style="background-color: #f8f9fa;">
+                                    <td style="padding: 12px; font-weight: 600; color: #555; border-bottom: 1px solid #dee2e6;">👤 Faces Detected</td>
+                                    <td style="padding: 12px; color: #333; border-bottom: 1px solid #dee2e6;">{alert.detected_faces_count}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 12px; font-weight: 600; color: #555;">🎯 Confidence</td>
+                                    <td style="padding: 12px; color: #333;">{f"{alert.confidence:.1%}" if alert.confidence else "N/A"}</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- System Info -->
+                    <tr>
+                        <td style="padding: 30px; background-color: #f8f9fa;">
+                            <h2 style="margin: 0 0 20px 0; color: #333; font-size: 20px; border-bottom: 2px solid {border_color}; padding-bottom: 10px;">
+                                💻 SYSTEM INFORMATION
+                            </h2>
+                            <table width="100%" cellpadding="8" cellspacing="0" style="background-color: white; border-radius: 6px; overflow: hidden;">
+                                <tr style="background-color: #f8f9fa;">
+                                    <td style="padding: 12px; font-weight: 600; color: #555; border-bottom: 1px solid #dee2e6; width: 40%;">🖥️ PC Name</td>
+                                    <td style="padding: 12px; color: #333; border-bottom: 1px solid #dee2e6;">{pc_name}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 12px; font-weight: 600; color: #555; border-bottom: 1px solid #dee2e6;">🌐 IP Address</td>
+                                    <td style="padding: 12px; color: #333; border-bottom: 1px solid #dee2e6;">{ip_address}</td>
+                                </tr>
+                                <tr style="background-color: #f8f9fa;">
+                                    <td style="padding: 12px; font-weight: 600; color: #555; border-bottom: 1px solid #dee2e6;">💿 Operating System</td>
+                                    <td style="padding: 12px; color: #333; border-bottom: 1px solid #dee2e6;">{os_info}</td>
+                                </tr>
+                                {f'''
+                                <tr>
+                                    <td style="padding: 12px; font-weight: 600; color: #555; border-bottom: 1px solid #dee2e6;">⚡ CPU Usage</td>
+                                    <td style="padding: 12px; color: #333; border-bottom: 1px solid #dee2e6;">{cpu_percent:.1f}%</td>
+                                </tr>
+                                ''' if cpu_percent is not None else ''}
+                                {f'''
+                                <tr style="background-color: #f8f9fa;">
+                                    <td style="padding: 12px; font-weight: 600; color: #555;">🧠 RAM Usage</td>
+                                    <td style="padding: 12px; color: #333;">{ram_used} / {ram_total} ({ram_percent:.1f}%)</td>
+                                </tr>
+                                ''' if ram_percent is not None else ''}
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Alert History Timeline -->
+                    {recent_alerts_html}
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 20px; background-color: #2c3e50; text-align: center;">
+                            <p style="margin: 0; color: #95a5a6; font-size: 12px;">
+                                This is an automated alert from <strong style="color: #ecf0f1;">Senthium AI Security System</strong>
+                            </p>
+                            <p style="margin: 5px 0 0 0; color: #7f8c8d; font-size: 11px;">
+                                Powered by FaceNet CNN + DeepFace 🚀
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+            
+            # Attach both versions
+            msg.attach(MIMEText(text_body, 'plain'))
+            msg.attach(MIMEText(html_body, 'html'))
             
             # 📸 ATTACH INTRUDER PHOTO (if snapshot exists)
             if alert.snapshot_path and Path(alert.snapshot_path).exists():
