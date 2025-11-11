@@ -96,7 +96,7 @@ class HauntingMode:
                 
                 # Try to set a deeper voice (male voice if available)
                 voices = self.tts_engine.getProperty('voices')
-                if voices:
+                if voices and isinstance(voices, list) and len(voices) > 0:
                     # Prefer male voice (usually voices[0] on Windows)
                     self.tts_engine.setProperty('voice', voices[0].id)
                 
