@@ -10,6 +10,7 @@ import time
 import signal
 import logging
 import sys
+import os
 from enum import Enum
 from typing import Optional
 from datetime import datetime
@@ -87,10 +88,20 @@ class SenthiumDaemon:
             self.failsafe = FailsafeTimer(max_duration_seconds=max_awake_duration)
             
             # Initialize IPC server for CLI communication
-            # DISABLED: IPC server blocks daemon main loop (poll() is blocking)
-            # TODO: Fix IPC to use non-blocking I/O or move to separate thread
-            self.ipc_server = None
-            self.logger.info("⚠️  IPC server disabled (daemon-only mode, use Streamlit UI for control)")
+            # Enable for tests via environment variable
+            enable_ipc = os.getenv('SENTHIUM_ENABLE_IPC', 'false').lower() == 'true'
+            
+            if enable_ipc:
+                try:
+                    from src.ipc.channel import IPCServer
+                    self.ipc_server = IPCServer()
+                    self.logger.info("✅ IPC server enabled (test mode)")
+                except ImportError:
+                    self.ipc_server = None
+                    self.logger.warning("⚠️  IPC module not available")
+            else:
+                self.ipc_server = None
+                self.logger.info("⚠️  IPC server disabled (daemon-only mode, use Streamlit UI for control)")
             
             # Initialize activity logger
             self.activity_logger = ActivityLogger()
@@ -304,10 +315,84 @@ class SenthiumDaemon:
             )
     
     def _poll_ipc(self):
-        """Poll for incoming IPC messages (DISABLED - IPC blocking issue)"""
-        # IPC disabled due to blocking poll() call
-        # Use Streamlit UI for daemon control instead
-        return
+        """Poll for incoming IPC messages"""
+        if self.ipc_server is None:
+            return
+        
+        try:
+            result = self.ipc_server.poll()
+            if result:
+                message, client_context = result
+                response = self._handle_ipc_command(message)
+                self.ipc_server.send_response(response, client_context)
+        except Exception as e:
+            self.logger.error(f"IPC poll error: {e}")
+    
+    def _handle_ipc_command(self, message):
+        """Handle incoming IPC command"""
+        from src.ipc.channel import IPCResponse
+        
+        command = message.command.upper()
+        
+        if command == "STATUS":
+            return IPCResponse(
+                success=True,
+                data={
+                    "state": self.state.value,
+                    "uptime": (datetime.now() - self._start_time).total_seconds() if hasattr(self, '_start_time') else 0,
+                    "wrapper_lock_active": self._wrapper_lock_active,
+                    "failsafe_active": self.failsafe.is_active() if self.failsafe else False
+                }
+            )
+        
+        elif command == "INFO":
+            return IPCResponse(
+                success=True,
+                data={
+                    "config_path": str(self.config_path),
+                    "rules": [r.to_dict() for r in self.rules_engine.rules],
+                    "poll_interval": self.poll_interval,
+                    "max_awake": self.max_awake_duration
+                }
+            )
+        
+        elif command == "ACQUIRE_LOCK":
+            self._wrapper_lock_active = True
+            self._wrapper_lock_reason = message.data.get("reason", "CLI command")
+            return IPCResponse(
+                success=True,
+                data={"lock_active": True}
+            )
+        
+        elif command == "RELEASE_LOCK":
+            self._wrapper_lock_active = False
+            self._wrapper_lock_reason = None
+            return IPCResponse(
+                success=True,
+                data={"lock_active": False}
+            )
+        
+        elif command == "RELOAD_CONFIG":
+            try:
+                # Reload config (simplified - just reload rules)
+                from pathlib import Path
+                self.rules_engine = RulesEngine(Path(self.config_path))
+                return IPCResponse(
+                    success=True,
+                    message="Config reloaded successfully",
+                    data={"rules_count": len(self.rules_engine.rules)}
+                )
+            except Exception as e:
+                return IPCResponse(
+                    success=False,
+                    message=f"Failed to reload config: {str(e)}"
+                )
+        
+        else:
+            return IPCResponse(
+                success=False,
+                message=f"Unknown command: {command}"
+            )
     
     def _handle_monitoring_state(self, metrics):
         """
@@ -434,6 +519,14 @@ class SenthiumDaemon:
         self._running = True
         print("[DEBUG] Transitioning to MONITORING state...")
         self._transition_state(DaemonState.MONITORING)
+        
+        # Start IPC server if enabled
+        if self.ipc_server:
+            try:
+                self.ipc_server.start()
+                self.logger.info("✅ IPC server started")
+            except Exception as e:
+                self.logger.error(f"Failed to start IPC server: {e}")
         
         self.logger.info("=" * 70)
         self.logger.info("🚀 Senthium Daemon Started!")

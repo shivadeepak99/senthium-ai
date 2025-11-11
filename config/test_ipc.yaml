@@ -1,0 +1,30 @@
+senthium:
+  version: 0.6.0
+  
+  rules:
+    - name: "Test Rule"
+      enabled: true
+      conditions:
+        processes:
+          - chrome.exe
+      action:
+        prevent_sleep: true
+  
+  failsafe:
+    max_awake_hours: 4
+    enable: true
+  
+  security:
+    enabled: false  # DISABLE SECURITY FOR TESTS!
+    camera_index: 0
+    check_interval_seconds: 5
+    detection_model: hog
+    recognition_tolerance: 0.6
+    auto_lock_on_intruder: false
+    auto_sleep_on_intruder: false
+    play_alarm_on_intruder: false
+    
+    alerts:
+      email_enabled: false
+      desktop_notification: false
+      sound_alert: false

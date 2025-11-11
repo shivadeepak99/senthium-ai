@@ -135,7 +135,8 @@ class TestIPCCommunication:
             daemon_control.stop_daemon()
             time.sleep(2)
         
-        daemon_control.start_daemon()
+        # Use test config without security/camera
+        daemon_control.start_daemon(config_path="config/test_ipc.yaml")
         time.sleep(3)  # Give daemon time to start IPC server
     
     def teardown_method(self):

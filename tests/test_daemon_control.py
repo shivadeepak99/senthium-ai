@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch, MagicMock, call
 from pathlib import Path
 import sys
 
-from daemon.control import (
+from src.daemon.control import (
     start_daemon,
     stop_daemon,
     restart_daemon,
@@ -20,7 +20,7 @@ class TestDaemonControl:
     
     def test_start_daemon_already_running(self):
         """Test start_daemon fails if daemon already running"""
-        with patch('daemon.control.PIDFile') as mock_pidfile_class:
+        with patch('src.daemon.control.PIDFile') as mock_pidfile_class:
             mock_pidfile = Mock()
             mock_pidfile.is_running.return_value = True
             mock_pidfile.get_pid.return_value = 12345
@@ -33,7 +33,7 @@ class TestDaemonControl:
     
     def test_start_daemon_foreground_success(self):
         """Test starting daemon in foreground mode"""
-        with patch('daemon.control.PIDFile') as mock_pidfile_class:
+        with patch('src.daemon.control.PIDFile') as mock_pidfile_class:
             mock_pidfile = Mock()
             mock_pidfile.is_running.return_value = False
             mock_pidfile.__enter__ = Mock(return_value=mock_pidfile)
@@ -41,11 +41,11 @@ class TestDaemonControl:
             mock_pidfile_class.return_value = mock_pidfile
             
             # Mock the dynamically imported SenthiumDaemon
-            with patch('daemon.core.SenthiumDaemon') as mock_daemon_class:
+            with patch('src.daemon.core.SenthiumDaemon') as mock_daemon_class:
                 mock_daemon = Mock()
                 mock_daemon_class.return_value = mock_daemon
                 
-                with patch('utils.logger.setup_logger'):
+                with patch('src.utils.logger.setup_logger'):
                     result = start_daemon(foreground=True)
                     
                     assert result == 0
@@ -53,7 +53,7 @@ class TestDaemonControl:
     
     def test_start_daemon_foreground_keyboard_interrupt(self):
         """Test foreground daemon handles Ctrl+C gracefully"""
-        with patch('daemon.control.PIDFile') as mock_pidfile_class:
+        with patch('src.daemon.control.PIDFile') as mock_pidfile_class:
             mock_pidfile = Mock()
             mock_pidfile.is_running.return_value = False
             mock_pidfile.__enter__ = Mock(return_value=mock_pidfile)
@@ -61,31 +61,31 @@ class TestDaemonControl:
             mock_pidfile_class.return_value = mock_pidfile
             
             # Mock the dynamically imported SenthiumDaemon
-            with patch('daemon.core.SenthiumDaemon') as mock_daemon_class:
+            with patch('src.daemon.core.SenthiumDaemon') as mock_daemon_class:
                 mock_daemon = Mock()
                 mock_daemon.run.side_effect = KeyboardInterrupt()
                 mock_daemon_class.return_value = mock_daemon
                 
-                with patch('utils.logger.setup_logger'):
+                with patch('src.utils.logger.setup_logger'):
                     result = start_daemon(foreground=True)
                     
                     assert result == 0  # Clean exit on Ctrl+C
     
     def test_start_daemon_background_success(self):
         """Test starting daemon in background mode"""
-        with patch('daemon.control.PIDFile') as mock_pidfile_class:
+        with patch('src.daemon.control.PIDFile') as mock_pidfile_class:
             mock_pidfile = Mock()
             mock_pidfile.is_running.side_effect = [False, True]  # Not running, then running
             mock_pidfile.get_pid.return_value = 99999
             mock_pidfile_class.return_value = mock_pidfile
             
-            with patch('daemon.control.subprocess.Popen') as mock_popen:
+            with patch('src.daemon.control.subprocess.Popen') as mock_popen:
                 mock_process = Mock()
                 mock_process.pid = 99999
                 mock_popen.return_value = mock_process
                 
-                with patch('daemon.control.time.sleep'):
-                    with patch('daemon.control.Path'):
+                with patch('src.daemon.control.time.sleep'):
+                    with patch('src.daemon.control.Path'):
                         result = start_daemon(foreground=False)
                         
                         assert result == 0
@@ -93,20 +93,20 @@ class TestDaemonControl:
     
     def test_start_daemon_background_windows(self):
         """Test background start on Windows uses correct flags"""
-        with patch('daemon.control.PIDFile') as mock_pidfile_class:
+        with patch('src.daemon.control.PIDFile') as mock_pidfile_class:
             mock_pidfile = Mock()
             mock_pidfile.is_running.side_effect = [False, True]
             mock_pidfile.get_pid.return_value = 99999
             mock_pidfile_class.return_value = mock_pidfile
             
             with patch('sys.platform', new='win32'):
-                with patch('daemon.control.subprocess.Popen') as mock_popen:
+                with patch('src.daemon.control.subprocess.Popen') as mock_popen:
                     mock_process = Mock()
                     mock_process.pid = 99999
                     mock_popen.return_value = mock_process
                     
-                    with patch('daemon.control.time.sleep'):
-                        with patch('daemon.control.Path'):
+                    with patch('src.daemon.control.time.sleep'):
+                        with patch('src.daemon.control.Path'):
                             result = start_daemon(foreground=False)
                             
                             assert result == 0
@@ -118,7 +118,7 @@ class TestDaemonControl:
     
     def test_stop_daemon_not_running(self):
         """Test stop_daemon when daemon not running"""
-        with patch('daemon.control.PIDFile') as mock_pidfile_class:
+        with patch('src.daemon.control.PIDFile') as mock_pidfile_class:
             mock_pidfile = Mock()
             mock_pidfile.get_pid.return_value = None
             mock_pidfile_class.return_value = mock_pidfile
@@ -129,7 +129,7 @@ class TestDaemonControl:
     
     def test_stop_daemon_graceful(self):
         """Test graceful daemon shutdown"""
-        with patch('daemon.control.PIDFile') as mock_pidfile_class:
+        with patch('src.daemon.control.PIDFile') as mock_pidfile_class:
             mock_pidfile = Mock()
             mock_pidfile.get_pid.return_value = 12345
             mock_pidfile.send_signal.return_value = True
@@ -144,7 +144,7 @@ class TestDaemonControl:
     
     def test_stop_daemon_timeout(self):
         """Test stop_daemon when graceful shutdown times out"""
-        with patch('daemon.control.PIDFile') as mock_pidfile_class:
+        with patch('src.daemon.control.PIDFile') as mock_pidfile_class:
             mock_pidfile = Mock()
             mock_pidfile.get_pid.return_value = 12345
             mock_pidfile.send_signal.return_value = True
@@ -157,14 +157,14 @@ class TestDaemonControl:
     
     def test_stop_daemon_force(self):
         """Test force kill daemon"""
-        with patch('daemon.control.PIDFile') as mock_pidfile_class:
+        with patch('src.daemon.control.PIDFile') as mock_pidfile_class:
             mock_pidfile = Mock()
             mock_pidfile.get_pid.return_value = 12345
             mock_pidfile.send_signal.return_value = True
             mock_pidfile.is_running.return_value = False
             mock_pidfile_class.return_value = mock_pidfile
             
-            with patch('daemon.control.time.sleep'):
+            with patch('src.daemon.control.time.sleep'):
                 result = stop_daemon(force=True)
                 
                 assert result == 0
@@ -174,13 +174,13 @@ class TestDaemonControl:
     
     def test_restart_daemon_success(self):
         """Test restarting daemon"""
-        with patch('daemon.control.stop_daemon') as mock_stop:
+        with patch('src.daemon.control.stop_daemon') as mock_stop:
             mock_stop.return_value = 0
             
-            with patch('daemon.control.start_daemon') as mock_start:
+            with patch('src.daemon.control.start_daemon') as mock_start:
                 mock_start.return_value = 0
                 
-                with patch('daemon.control.time.sleep'):
+                with patch('src.daemon.control.time.sleep'):
                     result = restart_daemon()
                     
                     assert result == 0
@@ -189,7 +189,7 @@ class TestDaemonControl:
     
     def test_restart_daemon_stop_fails(self):
         """Test restart fails if stop fails"""
-        with patch('daemon.control.stop_daemon') as mock_stop:
+        with patch('src.daemon.control.stop_daemon') as mock_stop:
             mock_stop.return_value = 1  # Error
             
             result = restart_daemon()
@@ -198,7 +198,7 @@ class TestDaemonControl:
     
     def test_daemon_status_running(self):
         """Test daemon_status when daemon is running"""
-        with patch('daemon.control.PIDFile') as mock_pidfile_class:
+        with patch('src.daemon.control.PIDFile') as mock_pidfile_class:
             mock_pidfile = Mock()
             mock_pidfile.is_running.return_value = True
             mock_pidfile.get_pid.return_value = 12345
@@ -211,7 +211,7 @@ class TestDaemonControl:
     
     def test_daemon_status_not_running(self):
         """Test daemon_status when daemon not running"""
-        with patch('daemon.control.PIDFile') as mock_pidfile_class:
+        with patch('src.daemon.control.PIDFile') as mock_pidfile_class:
             mock_pidfile = Mock()
             mock_pidfile.is_running.return_value = False
             mock_pidfile_class.return_value = mock_pidfile
@@ -222,7 +222,7 @@ class TestDaemonControl:
     
     def test_daemon_status_verbose(self):
         """Test verbose daemon status with IPC"""
-        with patch('daemon.control.PIDFile') as mock_pidfile_class:
+        with patch('src.daemon.control.PIDFile') as mock_pidfile_class:
             mock_pidfile = Mock()
             mock_pidfile.is_running.return_value = True
             mock_pidfile.get_pid.return_value = 12345
@@ -230,7 +230,7 @@ class TestDaemonControl:
             mock_pidfile_class.return_value = mock_pidfile
             
             # Mock the dynamically imported IPCClient
-            with patch('ipc.IPCClient') as mock_ipc_class:
+            with patch('src.ipc.IPCClient') as mock_ipc_class:
                 mock_client = Mock()
                 mock_response = Mock()
                 mock_response.success = True
