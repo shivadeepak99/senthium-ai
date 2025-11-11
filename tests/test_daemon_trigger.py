@@ -20,7 +20,7 @@ print("Config: config/test.yaml (matches python.exe)")
 print("This daemon itself is python.exe, so rule will match immediately!")
 print("=" * 70)
 
-from daemon.core import SenthiumDaemon
+from src.daemon.core import SenthiumDaemon
 
 try:
     daemon = SenthiumDaemon('config/test.yaml')

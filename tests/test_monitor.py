@@ -4,7 +4,7 @@ Unit tests for System Monitor module
 
 import pytest
 import time
-from daemon.monitor import SystemMonitor, SystemMetrics
+from src.daemon.monitor import SystemMonitor, SystemMetrics
 from unittest.mock import Mock, patch
 import psutil
 

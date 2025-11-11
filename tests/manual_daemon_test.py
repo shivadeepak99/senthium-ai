@@ -17,7 +17,7 @@ logging.basicConfig(
 print("🔥 Starting Senthium Daemon Test...")
 print("=" * 70)
 
-from daemon.core import SenthiumDaemon
+from src.daemon.core import SenthiumDaemon
 
 try:
     daemon = SenthiumDaemon('config/config.example.yaml')

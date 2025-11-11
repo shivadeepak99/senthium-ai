@@ -6,9 +6,9 @@ import pytest
 import tempfile
 from pathlib import Path
 from datetime import datetime
-from rules.engine import RulesEngine, RuleMatch
-from rules.schema import ConfigSchema, ConfigValidationError
-from daemon.monitor import SystemMetrics
+from src.rules.engine import RulesEngine, RuleMatch
+from src.rules.schema import ConfigSchema, ConfigValidationError
+from src.daemon.monitor import SystemMetrics
 
 
 class TestConfigSchema:

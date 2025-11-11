@@ -5,7 +5,7 @@ Unit tests for Logger utility
 import pytest
 import logging
 from pathlib import Path
-from utils.logger import setup_logger
+from src.utils.logger import setup_logger
 import tempfile
 import os
 

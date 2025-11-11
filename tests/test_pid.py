@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 import psutil
 
-from utils.pid import PIDFile
+from src.utils.pid import PIDFile
 
 
 class TestPIDFile:

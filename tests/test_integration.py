@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from daemon import control as daemon_control
 from ipc import IPCClient  # type: ignore
-from utils.pid import PIDFile
+from src.utils.pid import PIDFile
 
 
 class TestDaemonLifecycle:
