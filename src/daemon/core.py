@@ -27,10 +27,18 @@ from src.ipc import IPCServer, IPCMessage, IPCResponse
 
 class DaemonState(Enum):
     """Daemon state machine states"""
-    IDLE = "idle"           # Not monitoring, sleeping allowed
-    MONITORING = "monitoring"  # Watching metrics, no rules match yet
-    ACTIVE = "active"       # Rules matched, stay-awake asserted
-    SHUTDOWN = "shutdown"   # Graceful shutdown in progress
+    IDLE = "idle"                    # Not monitoring, sleeping allowed
+    MONITORING = "monitoring"        # Watching metrics, no rules match yet
+    ACTIVE = "active"                # Rules matched, stay-awake asserted
+    SHUTDOWN = "shutdown"            # Graceful shutdown in progress
+    
+    # 🔒 Security states (v0.6.0+)
+    AUTHORIZED = "authorized"        # Owner present, all good 🟢
+    NO_FACE = "no_face"             # Nobody detected, grace timer started 👻
+    UNAUTHORIZED = "unauthorized"    # Intruder detected, lock delay timer 🔴
+    LOCKED = "locked"               # System locked, intruder blocked 🔒
+    PAUSED = "paused"               # Monitoring paused by user ⏸️
+    GRACE = "grace"                 # Grace period active (no face < 30s) ⏳
 
 
 class SenthiumDaemon:

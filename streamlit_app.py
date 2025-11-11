@@ -111,7 +111,7 @@ with st.sidebar:
     
     page = st.radio(
         "Choose a page:",
-        ["📊 Dashboard", "👤 Face Enrollment", "🔍 Security Check", "⚙️ Settings"],
+        ["📊 Dashboard", "👤 Face Enrollment", "🔍 Security Check", "📈 Forensics Timeline", "🔍 Intruder Patterns", "⚙️ Settings"],
         label_visibility="collapsed"
     )
     
@@ -147,53 +147,169 @@ if not st.session_state.config_loaded:
 
 # ==================== DASHBOARD PAGE ====================
 if page == "📊 Dashboard":
-    st.title("📊 Security Dashboard")
-    st.markdown("Real-time overview of your AI security system")
+    st.title("📊 Enhanced Security Dashboard")
+    st.markdown("Real-time overview of your AI security system with state monitoring")
     
-    # Stats cards in columns
+    # Top row: State badge + Pause button
+    col_badge, col_pause = st.columns([3, 1])
+    
+    with col_badge:
+        # Get current state from daemon/security manager
+        try:
+            stats = st.session_state.security_manager.get_stats()
+            current_state = stats.get('current_state', 'MONITORING')
+            
+            # State badge with emoji and color
+            state_emojis = {
+                "AUTHORIZED": "🟢",
+                "MONITORING": "🔵", 
+                "NO_FACE": "👻",
+                "GRACE": "⏳",
+                "UNAUTHORIZED": "🔴",
+                "LOCKED": "🔒",
+                "PAUSED": "⏸️",
+                "ACTIVE": "🟢",
+                "IDLE": "⚪"
+            }
+            
+            state_colors = {
+                "AUTHORIZED": "#28a745",  # Green
+                "MONITORING": "#17a2b8",  # Blue
+                "NO_FACE": "#6c757d",     # Gray
+                "GRACE": "#ffc107",       # Yellow
+                "UNAUTHORIZED": "#dc3545", # Red
+                "LOCKED": "#343a40",      # Dark
+                "PAUSED": "#6c757d",      # Gray
+                "ACTIVE": "#28a745",      # Green
+                "IDLE": "#adb5bd"         # Light gray
+            }
+            
+            emoji = state_emojis.get(current_state, "⚪")
+            color = state_colors.get(current_state, "#6c757d")
+            
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, {color} 0%, {color}CC 100%);
+                padding: 1.5rem 2rem;
+                border-radius: 1rem;
+                color: white;
+                text-align: center;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            ">
+                <h1 style="margin: 0; font-size: 3rem;">{emoji}</h1>
+                <h2 style="margin: 0.5rem 0 0 0;">CURRENT STATE: {current_state}</h2>
+                <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Last update: {datetime.now().strftime("%H:%M:%S")}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"Error loading state: {e}")
+    
+    with col_pause:
+        st.markdown("<br>", unsafe_allow_html=True)  # Spacing
+        
+        # Pause/Resume button
+        is_paused = st.session_state.get('system_paused', False)
+        pause_duration = st.session_state.get('pause_duration', 10)
+        
+        if not is_paused:
+            if st.button("⏸️ Pause Monitoring", key="pause_btn", use_container_width=True, help="Temporarily disable monitoring"):
+                # Show pause duration selector
+                st.session_state['show_pause_options'] = True
+        else:
+            pause_until = st.session_state.get('pause_until', datetime.now())
+            remaining = (pause_until - datetime.now()).total_seconds()
+            if remaining > 0:
+                st.warning(f"⏸️ PAUSED\n\n{int(remaining)}s remaining")
+                if st.button("▶️ Resume Now", key="resume_btn", use_container_width=True):
+                    st.session_state['system_paused'] = False
+                    st.success("✅ Monitoring resumed!")
+                    st.rerun()
+            else:
+                # Auto-resume
+                st.session_state['system_paused'] = False
+                st.rerun()
+        
+        # Pause duration selector
+        if st.session_state.get('show_pause_options', False):
+            st.selectbox(
+                "Pause duration:",
+                options=[10, 30, 60, 300, 600],
+                format_func=lambda x: f"{x//60}m {x%60}s" if x >= 60 else f"{x}s",
+                key="pause_duration_select"
+            )
+            
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button("✅ Confirm", key="confirm_pause", use_container_width=True):
+                    from datetime import timedelta
+                    duration = st.session_state.get('pause_duration_select', 10)
+                    st.session_state['system_paused'] = True
+                    st.session_state['pause_until'] = datetime.now() + timedelta(seconds=duration)
+                    st.session_state['show_pause_options'] = False
+                    st.success(f"⏸️ Paused for {duration}s!")
+                    st.rerun()
+            with col_b:
+                if st.button("❌ Cancel", key="cancel_pause", use_container_width=True):
+                    st.session_state['show_pause_options'] = False
+                    st.rerun()
+    
+    st.markdown("---")
+    
+    # Live Stats Row (4 metrics)
     col1, col2, col3, col4 = st.columns(4)
     
     try:
         stats = st.session_state.security_manager.get_stats()
+        recognizer_stats = st.session_state.security_manager.recognizer.get_stats()
         
         with col1:
+            uptime_seconds = int(time.time() - st.session_state.get('start_time', time.time()))
+            uptime_str = f"{uptime_seconds // 3600}h {(uptime_seconds % 3600) // 60}m"
+            
             st.markdown(f"""
             <div class="metric-card">
-                <h3>System Status</h3>
-                <h2>{'🟢 Active' if stats.get('enabled', False) else '🔴 Disabled'}</h2>
+                <h3>⏱️ Uptime</h3>
+                <h2>{uptime_str}</h2>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
+            total_checks = stats.get('total_checks', 0)
             st.markdown(f"""
             <div class="metric-card">
-                <h3>Total Checks</h3>
-                <h2>{stats.get('total_checks', 0)}</h2>
+                <h3>🔍 Total Checks</h3>
+                <h2>{total_checks}</h2>
             </div>
             """, unsafe_allow_html=True)
         
         with col3:
+            threats = stats.get('threats_detected', 0)
             st.markdown(f"""
             <div class="metric-card">
-                <h3>Threats</h3>
-                <h2>{stats.get('threats_detected', 0)}</h2>
+                <h3>🚨 Alerts</h3>
+                <h2>{threats}</h2>
             </div>
             """, unsafe_allow_html=True)
         
         with col4:
+            total_faces = recognizer_stats.get('total_faces', 0)
             st.markdown(f"""
             <div class="metric-card">
-                <h3>Authorized</h3>
-                <h2>{stats.get('authorized_users_count', 0)}</h2>
+                <h3>👥 Enrolled Faces</h3>
+                <h2>{total_faces}</h2>
             </div>
             """, unsafe_allow_html=True)
     
     except Exception as e:
         st.error(f"Error loading stats: {e}")
     
+    # Add start_time to session state if not present
+    if 'start_time' not in st.session_state:
+        st.session_state['start_time'] = time.time()
+    
     st.markdown("---")
     
-    # Recent Alerts
+    # Recent Alerts (same as before, but with better formatting)
     st.subheader("🚨 Recent Alerts")
     
     alerts_file = Path("logs/security/alerts.jsonl")
@@ -231,16 +347,20 @@ if page == "📊 Dashboard":
     else:
         st.info("No alerts file found. Perform a security check first.")
     
-    # Latest Snapshot
+    # Latest Snapshots Gallery (show 3 most recent)
     st.markdown("---")
-    st.subheader("📸 Latest Snapshot")
+    st.subheader("📸 Latest Snapshots")
     
     snapshots_dir = Path("logs/security/snapshots")
     if snapshots_dir.exists():
         snapshots = sorted(snapshots_dir.glob("*.jpg"), key=lambda x: x.stat().st_mtime, reverse=True)
         if snapshots:
-            latest = snapshots[0]
-            st.image(str(latest), caption=f"Captured: {latest.name}", width="stretch")
+            # Show top 3 in columns
+            snapshot_cols = st.columns(min(3, len(snapshots)))
+            for idx, (col, snapshot) in enumerate(zip(snapshot_cols, snapshots[:3])):
+                with col:
+                    st.image(str(snapshot), caption=f"Snapshot {idx + 1}", use_container_width=True)
+                    st.caption(snapshot.name)
         else:
             st.info("No snapshots available yet.")
     else:
@@ -254,88 +374,149 @@ elif page == "👤 Face Enrollment":
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.subheader("📷 Capture or Upload Face Image")
+        st.subheader("📷 Multi-Snapshot Enrollment (5-10 photos for better accuracy)")
         
         name = st.text_input("Enter person's name", placeholder="e.g., John Doe")
         
+        # Add number of snapshots selector
+        num_snapshots = st.slider(
+            "Number of snapshots to capture",
+            min_value=1,
+            max_value=10,
+            value=5,
+            help="More snapshots = better recognition accuracy! Recommended: 5-7"
+        )
+        
+        # Initialize snapshot collection in session state
+        if 'snapshot_collection' not in st.session_state:
+            st.session_state['snapshot_collection'] = []
+            st.session_state['snapshot_count'] = 0
+        
         # Create tabs for different input methods 🎨
-        tab1, tab2 = st.tabs(["📸 Capture from Webcam", "📁 Upload Image"])
+        tab1, tab2 = st.tabs(["📸 Capture from Webcam (Multi-Snapshot)", "📁 Upload Image (Single)"])
         
         with tab1:
-            st.markdown("### Take a photo using your webcam")
+            st.markdown("### Take multiple photos from different angles/lighting")
+            
+            # Show progress
+            if st.session_state.snapshot_count > 0:
+                progress_pct = st.session_state.snapshot_count / num_snapshots
+                st.progress(progress_pct, text=f"📸 Captured {st.session_state.snapshot_count}/{num_snapshots} snapshots")
+            
+            # Instructions
+            st.info(f"""
+            **Multi-Snapshot Enrollment Instructions:**
+            1. Click "📸 Take Photo" below
+            2. **Rotate your head slightly** between captures (left, right, up, down)
+            3. **Vary lighting** if possible (move closer/farther from window)
+            4. Capture {num_snapshots} photos total
+            5. Review and enroll!
+            
+            **Why multi-snapshot?** Better accuracy across different angles and lighting! 🎯
+            """)
             
             col_a, col_b, col_c = st.columns([1, 2, 1])
             
             with col_b:
-                if st.button("📸 Take Photo", key="capture_btn", use_container_width=True):
-                    if not name:
-                        st.error("⚠️ Please enter a name first!")
-                    else:
-                        with st.spinner("📷 Capturing from webcam..."):
-                            try:
-                                # Initialize camera if needed
-                                if not st.session_state.security_manager.camera._is_initialized:
-                                    st.session_state.security_manager.camera.initialize()
+                # Only show capture button if we haven't reached target
+                if st.session_state.snapshot_count < num_snapshots:
+                    button_text = f"📸 Take Photo ({st.session_state.snapshot_count + 1}/{num_snapshots})"
+                    if st.button(button_text, key="capture_btn", use_container_width=True):
+                        if not name:
+                            st.error("⚠️ Please enter a name first!")
+                        else:
+                            with st.spinner(f"📷 Capturing snapshot {st.session_state.snapshot_count + 1}/{num_snapshots}..."):
+                                try:
+                                    # Initialize camera if needed
+                                    if not st.session_state.security_manager.camera._is_initialized:
+                                        st.session_state.security_manager.camera.initialize()
+                                    
+                                    # Capture frame
+                                    frame = st.session_state.security_manager.camera.capture_frame()
+                                    
+                                    if frame is not None:
+                                        # Add to collection
+                                        st.session_state.snapshot_collection.append(frame.copy())
+                                        st.session_state.snapshot_count += 1
+                                        st.session_state['captured_name'] = name
+                                        
+                                        if st.session_state.snapshot_count >= num_snapshots:
+                                            st.success(f"✅ All {num_snapshots} snapshots captured! Review below.")
+                                        else:
+                                            st.success(f"✅ Snapshot {st.session_state.snapshot_count}/{num_snapshots} captured! Rotate your head and take another.")
+                                        
+                                        st.rerun()
+                                    else:
+                                        st.error("❌ Failed to capture image from webcam. Make sure your camera is connected!")
                                 
-                                # Capture frame
-                                frame = st.session_state.security_manager.camera.capture_frame()
-                                
-                                if frame is not None:
-                                    # Store in session state for preview
-                                    st.session_state['captured_frame'] = frame
-                                    st.session_state['captured_name'] = name
-                                    st.success("✅ Photo captured! Review below.")
-                                    st.rerun()
-                                else:
-                                    st.error("❌ Failed to capture image from webcam. Make sure your camera is connected!")
-                            
-                            except Exception as e:
-                                st.error(f"💥 Camera error: {e}")
-                                import traceback
-                                st.code(traceback.format_exc(), language="python")
+                                except Exception as e:
+                                    st.error(f"💥 Camera error: {e}")
+                                    import traceback
+                                    st.code(traceback.format_exc(), language="python")
+                else:
+                    st.success(f"🎉 All {num_snapshots} snapshots captured!")
             
-            # Show captured preview and enroll button
-            if 'captured_frame' in st.session_state:
+            # Show collected snapshots
+            if st.session_state.snapshot_collection:
                 st.divider()
-                st.markdown("### 📸 Captured Photo")
+                st.markdown(f"### 📸 Captured Snapshots ({len(st.session_state.snapshot_collection)}/{num_snapshots})")
                 
-                # Convert BGR to RGB for display
+                # Show snapshots in a grid
                 import cv2
-                rgb_frame = cv2.cvtColor(st.session_state['captured_frame'], cv2.COLOR_BGR2RGB)
-                st.image(rgb_frame, caption=f"Preview: {st.session_state.get('captured_name', 'Unknown')}", use_container_width=True)
+                cols_per_row = 3
+                for i in range(0, len(st.session_state.snapshot_collection), cols_per_row):
+                    cols = st.columns(cols_per_row)
+                    for j, col in enumerate(cols):
+                        idx = i + j
+                        if idx < len(st.session_state.snapshot_collection):
+                            with col:
+                                rgb_frame = cv2.cvtColor(st.session_state.snapshot_collection[idx], cv2.COLOR_BGR2RGB)
+                                st.image(rgb_frame, caption=f"Snapshot {idx + 1}", use_container_width=True)
                 
-                col_x, col_y = st.columns(2)
+                # Action buttons
+                col_x, col_y, col_z = st.columns(3)
                 
                 with col_x:
-                    if st.button("✅ Enroll This Face", key="enroll_captured", use_container_width=True):
-                        with st.spinner("🎯 Enrolling face..."):
+                    if st.button("✅ Enroll All Snapshots", key="enroll_multi", use_container_width=True):
+                        with st.spinner(f"🎯 Enrolling {len(st.session_state.snapshot_collection)} snapshots for {st.session_state.get('captured_name', name)}..."):
                             try:
-                                # Save temp file
-                                temp_path = Path("temp_webcam_capture.jpg")
-                                cv2.imwrite(str(temp_path), st.session_state['captured_frame'])
+                                enrolled_count = 0
                                 
-                                # Enroll
-                                success = st.session_state.security_manager.enroll_owner_from_file(
-                                    image_path=str(temp_path),
-                                    user_name=st.session_state['captured_name']
-                                )
+                                # Enroll each snapshot
+                                for idx, frame in enumerate(st.session_state.snapshot_collection):
+                                    # Save temp file
+                                    temp_path = Path(f"temp_snapshot_{idx}.jpg")
+                                    cv2.imwrite(str(temp_path), frame)
+                                    
+                                    # Enroll (replace=False to accumulate multiple encodings)
+                                    replace = (idx == 0)  # Replace on first, append for rest
+                                    success = st.session_state.security_manager.enroll_owner_from_file(
+                                        image_path=str(temp_path),
+                                        user_name=st.session_state.get('captured_name', name),
+                                        replace_existing=replace
+                                    )
+                                    
+                                    # Cleanup
+                                    temp_path.unlink(missing_ok=True)
+                                    
+                                    if success:
+                                        enrolled_count += 1
                                 
-                                # IMPORTANT: Release camera after enrollment!
-                                print("[DEBUG] Releasing camera after webcam enrollment...")
+                                # Release camera after enrollment
+                                print("[DEBUG] Releasing camera after multi-snapshot enrollment...")
                                 st.session_state.security_manager.camera.release()
                                 
-                                # Cleanup
-                                temp_path.unlink(missing_ok=True)
-                                
-                                if success:
-                                    st.success(f"✅ Successfully enrolled {st.session_state['captured_name']}!")
+                                if enrolled_count > 0:
+                                    st.success(f"✅ Successfully enrolled {enrolled_count}/{len(st.session_state.snapshot_collection)} snapshots for {st.session_state.get('captured_name', name)}!")
                                     st.balloons()
-                                    # Clear session state
-                                    del st.session_state['captured_frame']
-                                    del st.session_state['captured_name']
+                                    # Clear collection
+                                    st.session_state.snapshot_collection = []
+                                    st.session_state.snapshot_count = 0
+                                    if 'captured_name' in st.session_state:
+                                        del st.session_state['captured_name']
                                     st.rerun()
                                 else:
-                                    st.error("❌ Enrollment failed - no face detected or error occurred")
+                                    st.error("❌ Enrollment failed - no faces detected in any snapshot")
                             
                             except Exception as e:
                                 st.error(f"💥 Enrollment error: {e}")
@@ -343,11 +524,21 @@ elif page == "👤 Face Enrollment":
                                 st.code(traceback.format_exc(), language="python")
                 
                 with col_y:
-                    if st.button("🔄 Retake Photo", key="retake_btn", use_container_width=True):
-                        # Release camera before retake
-                        print("[DEBUG] Releasing camera for retake...")
+                    if st.button("🔄 Start Over", key="restart_capture", use_container_width=True):
+                        # Release camera
+                        print("[DEBUG] Releasing camera for restart...")
                         st.session_state.security_manager.camera.release()
-                        del st.session_state['captured_frame']
+                        # Clear collection
+                        st.session_state.snapshot_collection = []
+                        st.session_state.snapshot_count = 0
+                        st.rerun()
+                
+                with col_z:
+                    if st.session_state.snapshot_count < num_snapshots:
+                        if st.button("➕ Add More Snapshots", key="add_more", use_container_width=True):
+                            st.info("Click '📸 Take Photo' button above to continue capturing!")
+            
+            # Legacy single capture section removed - now everything is multi-snapshot!
                         del st.session_state['captured_name']
                         st.rerun()
         
@@ -516,6 +707,402 @@ elif page == "🔍 Security Check":
         
         except Exception as e:
             st.error(f"Error loading stats: {e}")
+
+# ==================== FORENSICS TIMELINE PAGE ====================
+elif page == "📈 Forensics Timeline":
+    st.title("📈 Forensics & Activity Timeline")
+    st.markdown("Detailed audit trail of all security events with photos and analytics")
+    
+    # Load alerts from JSONL file
+    alerts_file = Path("logs/security/alerts.jsonl")
+    
+    if not alerts_file.exists():
+        st.warning("⚠️ No alerts file found. Security checks haven't been performed yet.")
+        st.info("💡 Go to **🔍 Security Check** page to run your first check!")
+        st.stop()
+    
+    # Read all alerts
+    try:
+        with open(alerts_file, 'r') as f:
+            all_alerts = [json.loads(line) for line in f.readlines()]
+        
+        if not all_alerts:
+            st.info("No security events recorded yet. Run a security check to see events here.")
+            st.stop()
+        
+        st.success(f"📊 Loaded {len(all_alerts)} security events")
+        
+        # === FILTERS ===
+        st.subheader("🔍 Filters")
+        
+        filter_col1, filter_col2, filter_col3 = st.columns(3)
+        
+        with filter_col1:
+            # Event type filter
+            event_types = list(set(alert.get('alert_type', 'unknown') for alert in all_alerts))
+            event_types.insert(0, "All Types")
+            selected_type = st.selectbox("Event Type:", event_types)
+        
+        with filter_col2:
+            # Date range filter
+            show_last = st.selectbox(
+                "Show Last:",
+                ["All Events", "Last 10", "Last 25", "Last 50", "Last 100"],
+                index=2  # Default to Last 25
+            )
+        
+        with filter_col3:
+            # Sort order
+            sort_order = st.selectbox(
+                "Sort By:",
+                ["Newest First", "Oldest First"],
+                index=0
+            )
+        
+        # Apply filters
+        filtered_alerts = all_alerts.copy()
+        
+        # Filter by type
+        if selected_type != "All Types":
+            filtered_alerts = [a for a in filtered_alerts if a.get('alert_type') == selected_type]
+        
+        # Apply show last limit
+        if show_last != "All Events":
+            limit = int(show_last.split()[-1])
+            filtered_alerts = filtered_alerts[-limit:]
+        
+        # Apply sort
+        if sort_order == "Newest First":
+            filtered_alerts = list(reversed(filtered_alerts))
+        
+        st.info(f"📋 Showing {len(filtered_alerts)} events")
+        
+        # === STATISTICS ===
+        st.markdown("---")
+        st.subheader("📊 Event Statistics")
+        
+        stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
+        
+        total_events = len(all_alerts)
+        unauthorized_count = len([a for a in all_alerts if a.get('alert_type') == 'unauthorized_access'])
+        authorized_count = len([a for a in all_alerts if a.get('alert_type') == 'authorized'])
+        no_face_count = len([a for a in all_alerts if a.get('alert_type') == 'no_face'])
+        
+        with stat_col1:
+            st.metric("Total Events", total_events)
+        with stat_col2:
+            st.metric("🚨 Unauthorized", unauthorized_count)
+        with stat_col3:
+            st.metric("✅ Authorized", authorized_count)
+        with stat_col4:
+            st.metric("👻 No Face", no_face_count)
+        
+        # === EXPORT ===
+        st.markdown("---")
+        export_col1, export_col2 = st.columns([3, 1])
+        
+        with export_col2:
+            if st.button("📥 Export to CSV", use_container_width=True):
+                import csv
+                import io
+                
+                # Create CSV
+                output = io.StringIO()
+                fieldnames = ['timestamp', 'alert_type', 'message', 'detected_faces_count', 'snapshot_path']
+                writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction='ignore')
+                
+                writer.writeheader()
+                for alert in all_alerts:
+                    writer.writerow(alert)
+                
+                # Download button
+                st.download_button(
+                    label="⬇️ Download CSV",
+                    data=output.getvalue(),
+                    file_name=f"senthium_alerts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
+                )
+        
+        # === TIMELINE ===
+        st.markdown("---")
+        st.subheader("📅 Event Timeline")
+        
+        # Display events
+        for idx, alert in enumerate(filtered_alerts):
+            alert_type = alert.get('alert_type', 'unknown')
+            timestamp = alert.get('timestamp', 'Unknown')
+            message = alert.get('message', 'No message')
+            faces_count = alert.get('detected_faces_count', 0)
+            snapshot_path = alert.get('snapshot_path', '')
+            
+            # Format timestamp
+            try:
+                if 'T' in timestamp:
+                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+                else:
+                    formatted_time = timestamp
+            except:
+                formatted_time = timestamp
+            
+            # Determine styling
+            is_threat = alert_type == 'unauthorized_access'
+            
+            if is_threat:
+                icon = "🚨"
+                color = "#dc3545"
+                bg_color = "#f8d7da"
+            elif alert_type == 'authorized':
+                icon = "✅"
+                color = "#28a745"
+                bg_color = "#d4edda"
+            elif alert_type == 'no_face':
+                icon = "👻"
+                color = "#6c757d"
+                bg_color = "#e2e3e5"
+            else:
+                icon = "ℹ️"
+                color = "#17a2b8"
+                bg_color = "#d1ecf1"
+            
+            # Create expandable event card
+            with st.expander(f"{icon} **{formatted_time}** - {alert_type.upper()}", expanded=(idx < 3)):
+                event_col1, event_col2 = st.columns([2, 1])
+                
+                with event_col1:
+                    st.markdown(f"""
+                    <div style="
+                        background: {bg_color};
+                        border-left: 5px solid {color};
+                        padding: 1rem;
+                        border-radius: 0.5rem;
+                        margin-bottom: 1rem;
+                    ">
+                        <strong style="color: {color}; font-size: 1.1rem;">{icon} {alert_type.replace('_', ' ').title()}</strong><br>
+                        <p style="margin: 0.5rem 0; color: #333;">{message}</p>
+                        <small style="color: #666;">
+                            <strong>Timestamp:</strong> {formatted_time}<br>
+                            <strong>Faces Detected:</strong> {faces_count}<br>
+                            <strong>Snapshot:</strong> {Path(snapshot_path).name if snapshot_path else 'N/A'}
+                        </small>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with event_col2:
+                    # Show snapshot if available
+                    if snapshot_path and Path(snapshot_path).exists():
+                        st.image(str(snapshot_path), caption="Event Snapshot", use_container_width=True)
+                        
+                        # Check for annotated version
+                        snapshot_file = Path(snapshot_path)
+                        annotated_path = snapshot_file.parent / f"{snapshot_file.stem}_annotated{snapshot_file.suffix}"
+                        
+                        if annotated_path.exists():
+                            st.image(str(annotated_path), caption="Annotated Snapshot", use_container_width=True)
+                    else:
+                        st.info("No snapshot available")
+                
+                # Additional details in columns
+                detail_col1, detail_col2 = st.columns(2)
+                
+                with detail_col1:
+                    st.markdown("**Event Details:**")
+                    for key, value in alert.items():
+                        if key not in ['message', 'timestamp', 'alert_type', 'snapshot_path', 'detected_faces_count']:
+                            st.text(f"{key}: {value}")
+                
+                with detail_col2:
+                    if snapshot_path and Path(snapshot_path).exists():
+                        # Download button for snapshot
+                        with open(snapshot_path, 'rb') as img_file:
+                            st.download_button(
+                                label="📥 Download Snapshot",
+                                data=img_file,
+                                file_name=Path(snapshot_path).name,
+                                mime="image/jpeg",
+                                use_container_width=True
+                            )
+        
+        # === CHART (Event Type Distribution) ===
+        st.markdown("---")
+        st.subheader("📊 Event Type Distribution")
+        
+        # Count events by type
+        type_counts = {}
+        for alert in all_alerts:
+            atype = alert.get('alert_type', 'unknown')
+            type_counts[atype] = type_counts.get(atype, 0) + 1
+        
+        # Create bar chart data
+        import pandas as pd
+        chart_data = pd.DataFrame({
+            'Event Type': list(type_counts.keys()),
+            'Count': list(type_counts.values())
+        })
+        
+        st.bar_chart(chart_data.set_index('Event Type'))
+        
+    except Exception as e:
+        st.error(f"❌ Error loading forensics data: {e}")
+        import traceback
+        st.code(traceback.format_exc(), language="python")
+
+# ==================== INTRUDER PATTERNS PAGE ====================
+elif page == "🔍 Intruder Patterns":
+    st.title("🔍 Intruder Patterns - Repeat Offenders")
+    st.markdown("Track and identify repeat unauthorized access attempts 🚨")
+    
+    # Check if pattern detection is enabled
+    pattern_config = config.get('senthium', {}).get('security', {}).get('intruder_patterns', {})
+    
+    if not pattern_config.get('enabled', False):
+        st.warning("⚠️ Intruder pattern detection is currently disabled!")
+        st.markdown("Enable it in Settings to start tracking repeat offenders.")
+        
+        if st.button("🔓 Enable Pattern Detection"):
+            try:
+                config['senthium']['security']['intruder_patterns']['enabled'] = True
+                st.session_state.config_manager.save(config)
+                st.success("✅ Pattern detection enabled! Restart the daemon to apply changes.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Failed to enable: {e}")
+    
+    else:
+        # Load patterns from file
+        patterns_file = Path("logs/security/intruder_patterns.json")
+        
+        if not patterns_file.exists():
+            st.info("📭 No intruder patterns detected yet!")
+            st.markdown("Patterns will appear here once the same unauthorized face is detected multiple times.")
+        
+        else:
+            try:
+                with open(patterns_file, 'r') as f:
+                    patterns_data = json.load(f)
+                
+                if not patterns_data:
+                    st.info("📭 No intruder patterns detected yet!")
+                else:
+                    # === STATS ===
+                    st.subheader("📊 Pattern Statistics")
+                    
+                    total_patterns = len(patterns_data)
+                    total_detections = sum(p['count'] for p in patterns_data.values())
+                    
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Total Patterns", total_patterns, help="Unique repeat offenders")
+                    col2.metric("Total Detections", total_detections, help="All unauthorized attempts")
+                    col3.metric("Alert Threshold", pattern_config.get('alert_threshold', 3), help="Detections before alert")
+                    
+                    st.divider()
+                    
+                    # === FILTERS ===
+                    st.subheader("🔍 Filters")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        threat_filter = st.selectbox(
+                            "Threat Level",
+                            ["All", "CRITICAL", "HIGH", "MEDIUM", "LOW"],
+                            help="Filter by threat level"
+                        )
+                    
+                    with col2:
+                        sort_by = st.selectbox(
+                            "Sort By",
+                            ["Most Recent", "Most Frequent", "Oldest"],
+                            help="Sort patterns"
+                        )
+                    
+                    # Convert to list
+                    patterns_list = []
+                    for pattern_id, pattern_data in patterns_data.items():
+                        pattern_data['pattern_id'] = pattern_id
+                        patterns_list.append(pattern_data)
+                    
+                    # Filter by threat level
+                    if threat_filter != "All":
+                        patterns_list = [p for p in patterns_list if p.get('threat_level') == threat_filter]
+                    
+                    # Sort
+                    if sort_by == "Most Recent":
+                        patterns_list.sort(key=lambda p: p.get('last_seen', ''), reverse=True)
+                    elif sort_by == "Most Frequent":
+                        patterns_list.sort(key=lambda p: p.get('count', 0), reverse=True)
+                    else:  # Oldest
+                        patterns_list.sort(key=lambda p: p.get('first_seen', ''))
+                    
+                    st.divider()
+                    
+                    # === PATTERN LIST ===
+                    st.subheader("🚨 Detected Patterns")
+                    st.markdown(f"Showing {len(patterns_list)} pattern(s)")
+                    
+                    if not patterns_list:
+                        st.info("No patterns match your filters.")
+                    
+                    else:
+                        for pattern in patterns_list:
+                            threat_level = pattern.get('threat_level', 'LOW')
+                            
+                            # Threat level colors
+                            color_map = {
+                                'CRITICAL': '#dc3545',
+                                'HIGH': '#fd7e14',
+                                'MEDIUM': '#ffc107',
+                                'LOW': '#6c757d'
+                            }
+                            border_color = color_map.get(threat_level, '#6c757d')
+                            
+                            # Pattern card
+                            with st.container():
+                                st.markdown(f"""
+                                <div style="border-left: 4px solid {border_color}; padding-left: 1rem; margin-bottom: 1rem;">
+                                    <h4>{pattern.get('pattern_id', 'Unknown')}</h4>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
+                                col1, col2, col3, col4 = st.columns(4)
+                                col1.metric("🔢 Count", pattern.get('count', 0))
+                                col2.metric("⚠️ Threat", threat_level)
+                                col3.metric("📅 First Seen", pattern.get('first_seen', 'N/A')[:10])
+                                col4.metric("🕒 Last Seen", pattern.get('last_seen', 'N/A')[:10])
+                                
+                                # Expandable details
+                                with st.expander("📋 View Details"):
+                                    st.json(pattern, expanded=False)
+                                    
+                                    # Photo gallery
+                                    snapshot_paths = pattern.get('snapshot_paths', [])
+                                    
+                                    if snapshot_paths:
+                                        st.markdown("**📸 Associated Snapshots:**")
+                                        
+                                        # Display up to 5 snapshots
+                                        cols = st.columns(min(len(snapshot_paths), 5))
+                                        for idx, snapshot_path in enumerate(snapshot_paths[:5]):
+                                            snapshot_file = Path(snapshot_path)
+                                            
+                                            if snapshot_file.exists():
+                                                try:
+                                                    img = Image.open(snapshot_file)
+                                                    cols[idx % 5].image(img, use_container_width=True)
+                                                except Exception as e:
+                                                    cols[idx % 5].error(f"Error loading image: {e}")
+                                            else:
+                                                cols[idx % 5].warning("Snapshot not found")
+                                        
+                                        if len(snapshot_paths) > 5:
+                                            st.info(f"+ {len(snapshot_paths) - 5} more snapshots")
+                                
+                                st.divider()
+            
+            except Exception as e:
+                st.error(f"❌ Error loading patterns: {e}")
+                import traceback
+                st.code(traceback.format_exc(), language="python")
 
 # ==================== SETTINGS PAGE ====================
 elif page == "⚙️ Settings":
@@ -1029,6 +1616,375 @@ elif page == "⚙️ Settings":
             st.rerun()
         else:
             st.error("❌ Failed to save configuration")
+    
+    st.markdown("---")
+    
+    # ===== CALIBRATION WIZARD =====
+    st.subheader("🎯 Calibration Wizard")
+    st.markdown("""
+    **Automatic Tolerance Calibration**
+    
+    This wizard helps you find the optimal recognition tolerance by testing with:
+    - ✅ Your face (authorized)
+    - ❌ Unknown faces (strangers)
+    - 📊 Statistical analysis
+    
+    **How it works:**
+    1. Capture 5-10 photos of YOUR face (authorized)
+    2. Show 3-5 photos of OTHER people (strangers)
+    3. System analyzes distances and recommends optimal threshold
+    """)
+    
+    # Initialize calibration state
+    if 'calibration_owner_samples' not in st.session_state:
+        st.session_state['calibration_owner_samples'] = []
+    if 'calibration_stranger_samples' not in st.session_state:
+        st.session_state['calibration_stranger_samples'] = []
+    
+    # Step 1: Collect Owner Samples
+    with st.expander("📸 Step 1: Capture YOUR Face (Owner)", expanded=len(st.session_state.calibration_owner_samples) < 5):
+        st.markdown(f"""
+        **Progress:** {len(st.session_state.calibration_owner_samples)}/5 owner samples captured
+        
+        Take 5-10 photos of yourself from different angles and lighting.
+        """)
+        
+        col_a, col_b = st.columns([2, 1])
+        
+        with col_a:
+            if st.button("📸 Capture Owner Sample", key="cal_owner_capture"):
+                try:
+                    if not st.session_state.security_manager.camera._is_initialized:
+                        st.session_state.security_manager.camera.initialize()
+                    
+                    frame = st.session_state.security_manager.camera.capture_frame()
+                    
+                    if frame is not None:
+                        # Detect and encode
+                        detections = st.session_state.security_manager.detector.detect_and_encode(frame)
+                        
+                        if detections:
+                            _, encoding = detections[0]
+                            st.session_state.calibration_owner_samples.append({
+                                'encoding': encoding,
+                                'frame': frame
+                            })
+                            st.success(f"✅ Owner sample {len(st.session_state.calibration_owner_samples)} captured!")
+                            st.rerun()
+                        else:
+                            st.error("❌ No face detected! Make sure you're visible to the camera.")
+                    else:
+                        st.error("❌ Failed to capture from camera")
+                
+                except Exception as e:
+                    st.error(f"Error: {e}")
+        
+        with col_b:
+            if st.session_state.calibration_owner_samples:
+                st.metric("Samples", len(st.session_state.calibration_owner_samples))
+        
+        # Show captured samples
+        if st.session_state.calibration_owner_samples:
+            st.markdown("**Captured Samples:**")
+            cols = st.columns(min(5, len(st.session_state.calibration_owner_samples)))
+            import cv2
+            for idx, (col, sample) in enumerate(zip(cols, st.session_state.calibration_owner_samples)):
+                with col:
+                    rgb = cv2.cvtColor(sample['frame'], cv2.COLOR_BGR2RGB)
+                    st.image(rgb, caption=f"Owner {idx+1}", use_container_width=True)
+    
+    # Step 2: Collect Stranger Samples
+    with st.expander("🚫 Step 2: Show STRANGER Faces (Not You)", expanded=len(st.session_state.calibration_owner_samples) >= 5 and len(st.session_state.calibration_stranger_samples) < 3):
+        st.markdown(f"""
+        **Progress:** {len(st.session_state.calibration_stranger_samples)}/3 stranger samples captured
+        
+        Show photos of OTHER people (NOT you). You can:
+        - Point camera at a photo on your phone
+        - Show a printed photo
+        - Have a friend stand in front of camera
+        """)
+        
+        col_c, col_d = st.columns([2, 1])
+        
+        with col_c:
+            if st.button("📸 Capture Stranger Sample", key="cal_stranger_capture"):
+                try:
+                    if not st.session_state.security_manager.camera._is_initialized:
+                        st.session_state.security_manager.camera.initialize()
+                    
+                    frame = st.session_state.security_manager.camera.capture_frame()
+                    
+                    if frame is not None:
+                        # Detect and encode
+                        detections = st.session_state.security_manager.detector.detect_and_encode(frame)
+                        
+                        if detections:
+                            _, encoding = detections[0]
+                            st.session_state.calibration_stranger_samples.append({
+                                'encoding': encoding,
+                                'frame': frame
+                            })
+                            st.success(f"✅ Stranger sample {len(st.session_state.calibration_stranger_samples)} captured!")
+                            st.rerun()
+                        else:
+                            st.error("❌ No face detected!")
+                    else:
+                        st.error("❌ Failed to capture from camera")
+                
+                except Exception as e:
+                    st.error(f"Error: {e}")
+        
+        with col_d:
+            if st.session_state.calibration_stranger_samples:
+                st.metric("Samples", len(st.session_state.calibration_stranger_samples))
+        
+        # Show captured samples
+        if st.session_state.calibration_stranger_samples:
+            st.markdown("**Captured Samples:**")
+            cols = st.columns(min(5, len(st.session_state.calibration_stranger_samples)))
+            import cv2
+            for idx, (col, sample) in enumerate(zip(cols, st.session_state.calibration_stranger_samples)):
+                with col:
+                    rgb = cv2.cvtColor(sample['frame'], cv2.COLOR_BGR2RGB)
+                    st.image(rgb, caption=f"Stranger {idx+1}", use_container_width=True)
+    
+    # Step 3: Analyze and Recommend
+    if len(st.session_state.calibration_owner_samples) >= 3 and len(st.session_state.calibration_stranger_samples) >= 2:
+        st.markdown("---")
+        st.subheader("📊 Analysis & Recommendation")
+        
+        if st.button("🎯 Analyze & Get Recommendation", key="cal_analyze", use_container_width=True):
+            with st.spinner("🔍 Analyzing face distances..."):
+                import numpy as np
+                
+                # Calculate distances within owner samples (should be low)
+                owner_distances = []
+                owner_encodings = [s['encoding'] for s in st.session_state.calibration_owner_samples]
+                
+                for i in range(len(owner_encodings)):
+                    for j in range(i+1, len(owner_encodings)):
+                        dist = np.linalg.norm(owner_encodings[i] - owner_encodings[j])
+                        owner_distances.append(dist)
+                
+                # Calculate distances between owner and strangers (should be high)
+                stranger_distances = []
+                stranger_encodings = [s['encoding'] for s in st.session_state.calibration_stranger_samples]
+                
+                for owner_enc in owner_encodings:
+                    for stranger_enc in stranger_encodings:
+                        dist = np.linalg.norm(owner_enc - stranger_enc)
+                        stranger_distances.append(dist)
+                
+                # Statistics
+                owner_mean = np.mean(owner_distances) if owner_distances else 0
+                owner_max = np.max(owner_distances) if owner_distances else 0
+                stranger_mean = np.mean(stranger_distances) if stranger_distances else 0
+                stranger_min = np.min(stranger_distances) if stranger_distances else 0
+                
+                # Recommended threshold: midpoint between max owner and min stranger
+                recommended_threshold = (owner_max + stranger_min) / 2
+                
+                # Add safety margin (20% closer to owner max)
+                safety_threshold = owner_max + (recommended_threshold - owner_max) * 0.8
+                
+                st.success("✅ Analysis Complete!")
+                
+                # Show results
+                result_col1, result_col2, result_col3 = st.columns(3)
+                
+                with result_col1:
+                    st.metric("Owner Distance Range", f"{owner_mean:.2f} avg", f"Max: {owner_max:.2f}")
+                    st.info("Lower = More Similar")
+                
+                with result_col2:
+                    st.metric("Stranger Distance Range", f"{stranger_mean:.2f} avg", f"Min: {stranger_min:.2f}")
+                    st.info("Higher = More Different")
+                
+                with result_col3:
+                    st.metric("🎯 Recommended Threshold", f"{safety_threshold:.2f}")
+                    st.success("Safe & Accurate!")
+                
+                st.markdown("---")
+                st.markdown(f"""
+                **📊 Detailed Analysis:**
+                
+                - **Owner Samples:** {len(owner_distances)} comparisons, distances range {owner_mean:.2f} (avg) to {owner_max:.2f} (max)
+                - **Stranger Samples:** {len(stranger_distances)} comparisons, distances range {stranger_min:.2f} (min) to {stranger_mean:.2f} (avg)
+                - **Separation Gap:** {stranger_min - owner_max:.2f} (larger = better)
+                
+                **Recommended Threshold:** `{safety_threshold:.2f}`
+                
+                This threshold ensures:
+                - ✅ Your face variations are recognized (below threshold)
+                - ❌ Stranger faces are rejected (above threshold)
+                - 🛡️ 20% safety margin to avoid false positives
+                """)
+                
+                # Apply button
+                if st.button("✅ Apply This Threshold", key="cal_apply", use_container_width=True):
+                    if st.session_state.config_manager.update_monitoring(
+                        check_interval=st.session_state.config_manager.get('senthium.security.monitoring.check_interval_seconds', 10),
+                        recognition_tolerance=safety_threshold,
+                        camera_index=st.session_state.config_manager.get('senthium.security.monitoring.camera_index', 0),
+                        alert_cooldown=st.session_state.config_manager.get('senthium.security.monitoring.alert_cooldown_seconds', 300)
+                    ):
+                        st.success(f"✅ Recognition tolerance updated to {safety_threshold:.2f}!")
+                        st.balloons()
+                        st.info("💡 Restart daemon to apply changes")
+                        
+                        # Clear calibration data
+                        st.session_state.calibration_owner_samples = []
+                        st.session_state.calibration_stranger_samples = []
+                        
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to save threshold")
+    
+    # Reset button
+    if st.session_state.calibration_owner_samples or st.session_state.calibration_stranger_samples:
+        if st.button("🔄 Reset Calibration", key="cal_reset"):
+            st.session_state.calibration_owner_samples = []
+            st.session_state.calibration_stranger_samples = []
+            st.success("✅ Calibration data cleared!")
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # ===== SNAPSHOT ENCRYPTION =====
+    st.subheader("🔒 Snapshot Encryption & Privacy")
+    st.markdown("""
+    **Encrypt security snapshots for privacy protection**
+    
+    - Snapshots contain facial images - keep them secure! 🛡️
+    - Encryption uses AES-128 (Fernet) - military grade! 🔐
+    - Encrypted files can only be decrypted with your key
+    - Key is stored securely with restricted permissions
+    """)
+    
+    # Load current encryption config
+    encryption_config = st.session_state.config_manager.get('senthium.security.encryption', {})
+    encryption_enabled = encryption_config.get('enabled', False)
+    auto_encrypt = encryption_config.get('auto_encrypt_new', False)
+    
+    col_enc1, col_enc2 = st.columns(2)
+    
+    with col_enc1:
+        new_encryption_enabled = st.checkbox(
+            "🔒 Enable Snapshot Encryption",
+            value=encryption_enabled,
+            help="Encrypt all security snapshots for privacy"
+        )
+        
+        new_auto_encrypt = st.checkbox(
+            "⚡ Auto-Encrypt New Snapshots",
+            value=auto_encrypt,
+            help="Automatically encrypt snapshots as they're captured",
+            disabled=not new_encryption_enabled
+        )
+    
+    with col_enc2:
+        # Encryption stats
+        snapshot_dir = Path("logs/security/snapshots")
+        if snapshot_dir.exists():
+            all_files = list(snapshot_dir.glob("*.*"))
+            encrypted_files = list(snapshot_dir.glob("*.encrypted"))
+            plaintext_files = [f for f in all_files if not f.name.endswith('.encrypted')]
+            
+            st.metric("Total Snapshots", len(all_files))
+            st.metric("🔒 Encrypted", len(encrypted_files))
+            st.metric("📁 Plaintext", len(plaintext_files))
+        else:
+            st.info("No snapshots directory found")
+    
+    # Encryption actions
+    st.markdown("**Bulk Actions:**")
+    action_col1, action_col2, action_col3 = st.columns(3)
+    
+    with action_col1:
+        if st.button("🔒 Encrypt All Snapshots", use_container_width=True):
+            with st.spinner("Encrypting all snapshots..."):
+                try:
+                    from src.utils.snapshot_encryption import SnapshotEncryption
+                    
+                    encryptor = SnapshotEncryption(key_file="config/.snapshot_key")
+                    count = encryptor.encrypt_directory("logs/security/snapshots", pattern="*.jpg")
+                    
+                    if count > 0:
+                        st.success(f"✅ Encrypted {count} snapshot(s)!")
+                        st.balloons()
+                        st.rerun()
+                    else:
+                        st.info("No unencrypted snapshots found")
+                
+                except Exception as e:
+                    st.error(f"❌ Encryption failed: {e}")
+    
+    with action_col2:
+        if st.button("🔓 Decrypt All Snapshots", use_container_width=True):
+            with st.spinner("Decrypting all snapshots..."):
+                try:
+                    from src.utils.snapshot_encryption import SnapshotEncryption
+                    
+                    encryptor = SnapshotEncryption(key_file="config/.snapshot_key")
+                    count = encryptor.decrypt_directory("logs/security/snapshots", pattern="*.encrypted")
+                    
+                    if count > 0:
+                        st.success(f"✅ Decrypted {count} snapshot(s)!")
+                        st.rerun()
+                    else:
+                        st.info("No encrypted snapshots found")
+                
+                except Exception as e:
+                    st.error(f"❌ Decryption failed: {e}")
+    
+    with action_col3:
+        if st.button("🗑️ Delete Plaintext Backups", use_container_width=True, type="secondary"):
+            with st.warning("⚠️ This will permanently delete unencrypted .jpg files!"):
+                if st.button("⚠️ Confirm Delete", key="confirm_delete_plaintext"):
+                    try:
+                        snapshot_dir = Path("logs/security/snapshots")
+                        deleted = 0
+                        
+                        for jpg_file in snapshot_dir.glob("*.jpg"):
+                            # Check if encrypted version exists
+                            encrypted_version = snapshot_dir / f"{jpg_file.name}.encrypted"
+                            if encrypted_version.exists():
+                                jpg_file.unlink()
+                                deleted += 1
+                        
+                        st.success(f"🗑️ Deleted {deleted} plaintext backup(s)")
+                        st.rerun()
+                    
+                    except Exception as e:
+                        st.error(f"❌ Deletion failed: {e}")
+    
+    # Save encryption settings
+    if st.button("💾 Save Encryption Settings", key="save_encryption"):
+        # Update config (we'll need to add this method)
+        try:
+            # Direct config update for now
+            config = st.session_state.config_manager.load()
+            if 'senthium' not in config:
+                config['senthium'] = {}
+            if 'security' not in config['senthium']:
+                config['senthium']['security'] = {}
+            if 'encryption' not in config['senthium']['security']:
+                config['senthium']['security']['encryption'] = {}
+            
+            config['senthium']['security']['encryption']['enabled'] = new_encryption_enabled
+            config['senthium']['security']['encryption']['auto_encrypt_new'] = new_auto_encrypt
+            
+            if st.session_state.config_manager.save(config):
+                st.success("✅ Encryption settings saved!")
+                st.info("💡 Changes will apply to new snapshots")
+                st.rerun()
+            else:
+                st.error("❌ Failed to save encryption settings")
+        
+        except Exception as e:
+            st.error(f"❌ Error: {e}")
+            import traceback
+            st.code(traceback.format_exc(), language="python")
 
 # Footer
 st.markdown("---")

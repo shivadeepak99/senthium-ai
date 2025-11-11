@@ -552,10 +552,12 @@ View in HTML email client for rich formatting and photos.
             msg.attach(MIMEText(text_body, 'plain'))
             msg.attach(MIMEText(html_body, 'html'))
             
-            # 📸 ATTACH INTRUDER PHOTO (if snapshot exists)
+            # 📸 ATTACH INTRUDER PHOTOS (original + annotated if available)
             if alert.snapshot_path and Path(alert.snapshot_path).exists():
                 try:
                     print(f"[DEBUG EMAIL] Attaching snapshot: {alert.snapshot_path}")
+                    
+                    # Attach original snapshot
                     with open(alert.snapshot_path, 'rb') as img_file:
                         img_data = img_file.read()
                         img = MIMEImage(img_data)
@@ -566,7 +568,25 @@ View in HTML email client for rich formatting and photos.
                         img.add_header('Content-ID', f'<{snapshot_filename}>')
                         
                         msg.attach(img)
-                        print(f"[DEBUG EMAIL] ✅ Photo attached: {snapshot_filename}")
+                        print(f"[DEBUG EMAIL] ✅ Original photo attached: {snapshot_filename}")
+                    
+                    # Check for annotated version (should have "_annotated" suffix)
+                    original_path = Path(alert.snapshot_path)
+                    annotated_path = original_path.parent / f"{original_path.stem}_annotated{original_path.suffix}"
+                    
+                    if annotated_path.exists():
+                        print(f"[DEBUG EMAIL] Found annotated snapshot: {annotated_path}")
+                        with open(annotated_path, 'rb') as img_file:
+                            img_data = img_file.read()
+                            img = MIMEImage(img_data)
+                            
+                            annotated_filename = annotated_path.name
+                            img.add_header('Content-Disposition', 'attachment', filename=annotated_filename)
+                            img.add_header('Content-ID', f'<{annotated_filename}>')
+                            
+                            msg.attach(img)
+                            print(f"[DEBUG EMAIL] ✅ Annotated photo attached: {annotated_filename}")
+                    
                 except Exception as e:
                     logger.warning(f"⚠️ Failed to attach snapshot: {e}")
                     print(f"[DEBUG EMAIL] ⚠️ Failed to attach photo: {e}")

@@ -1,0 +1,16 @@
+{
+  "intruder_1_20251111": {
+    "pattern_id": "intruder_1_20251111",
+    "first_seen": "2025-11-11T14:04:57.125457",
+    "last_seen": "2025-11-11T14:04:57.125457",
+    "count": 2,
+    "timestamps": [
+      "2025-11-11T14:04:57.125457",
+      "2025-11-11T14:04:57.125457"
+    ],
+    "snapshot_paths": [
+      "logs\\security\\snapshots\\security_20251111_140457.jpg"
+    ],
+    "threat_level": "LOW"
+  }
+}
