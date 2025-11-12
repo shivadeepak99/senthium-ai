@@ -150,8 +150,8 @@ class TestIPCCommunication:
         while pid_file.is_running() and (time.time() - start) < timeout:
             time.sleep(0.1)
         
-        # Extra sleep to ensure IPC pipe cleanup on Windows
-        time.sleep(1)
+        # Extra sleep to ensure IPC pipe cleanup on Windows (pipes need time to release)
+        time.sleep(2.5)
     
     def test_status_command(self):
         """Test STATUS IPC command"""

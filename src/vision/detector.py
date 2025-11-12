@@ -225,7 +225,8 @@ class FaceDetector:
                     
                     # DeepFace returns list of dicts
                     if embedding_objs and len(embedding_objs) > 0:
-                        embedding = np.array(embedding_objs[0]['embedding'])
+                        face_data = embedding_objs[0]  # type: ignore
+                        embedding = np.array(face_data['embedding'])  # type: ignore
                         print(f"[DEBUG] Generated embedding: shape={embedding.shape}, first 5 values={embedding[:5]}")
                         encodings.append(embedding)
                     
