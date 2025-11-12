@@ -49,6 +49,7 @@ def setup_logger(
     # Console handler with colors
     console_handler = colorlog.StreamHandler()
     console_handler.setLevel(logging.DEBUG)
+    console_handler.setStream(open(1, 'w', encoding='utf-8', closefd=False))  # UTF-8 stdout
     
     console_formatter = colorlog.ColoredFormatter(
         '%(log_color)s%(asctime)s [%(levelname)s] %(name)s: %(message)s',
@@ -77,7 +78,8 @@ def setup_logger(
             log_path,
             maxBytes=10 * 1024 * 1024,  # 10MB
             backupCount=5,
-            delay=True
+            delay=True,
+            encoding='utf-8'  # UTF-8 encoding for emoji support
         )
         file_handler.setLevel(logging.DEBUG)
         

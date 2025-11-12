@@ -105,7 +105,7 @@ if 'security_manager' not in st.session_state:
 
 # Sidebar
 with st.sidebar:
-    st.image("https://via.placeholder.com/200x100/667eea/ffffff?text=SENTHIUM", width="stretch")
+    st.image("https://via.placeholder.com/200x100/667eea/ffffff?text=SENTHIUM")
     st.title("🔒 Senthium AI")
     st.markdown("### Navigation")
     
@@ -212,7 +212,7 @@ if page == "📊 Dashboard":
         pause_duration = st.session_state.get('pause_duration', 10)
         
         if not is_paused:
-            if st.button("⏸️ Pause Monitoring", key="pause_btn", use_container_width=True, help="Temporarily disable monitoring"):
+            if st.button("⏸️ Pause Monitoring", key="pause_btn", help="Temporarily disable monitoring"):
                 # Show pause duration selector
                 st.session_state['show_pause_options'] = True
         else:
@@ -220,7 +220,7 @@ if page == "📊 Dashboard":
             remaining = (pause_until - datetime.now()).total_seconds()
             if remaining > 0:
                 st.warning(f"⏸️ PAUSED\n\n{int(remaining)}s remaining")
-                if st.button("▶️ Resume Now", key="resume_btn", use_container_width=True):
+                if st.button("▶️ Resume Now", key="resume_btn"):
                     st.session_state['system_paused'] = False
                     st.success("✅ Monitoring resumed!")
                     st.rerun()
@@ -240,7 +240,7 @@ if page == "📊 Dashboard":
             
             col_a, col_b = st.columns(2)
             with col_a:
-                if st.button("✅ Confirm", key="confirm_pause", use_container_width=True):
+                if st.button("✅ Confirm", key="confirm_pause"):
                     from datetime import timedelta
                     duration = st.session_state.get('pause_duration_select', 10)
                     st.session_state['system_paused'] = True
@@ -249,7 +249,7 @@ if page == "📊 Dashboard":
                     st.success(f"⏸️ Paused for {duration}s!")
                     st.rerun()
             with col_b:
-                if st.button("❌ Cancel", key="cancel_pause", use_container_width=True):
+                if st.button("❌ Cancel", key="cancel_pause"):
                     st.session_state['show_pause_options'] = False
                     st.rerun()
     
@@ -359,7 +359,7 @@ if page == "📊 Dashboard":
             snapshot_cols = st.columns(min(3, len(snapshots)))
             for idx, (col, snapshot) in enumerate(zip(snapshot_cols, snapshots[:3])):
                 with col:
-                    st.image(str(snapshot), caption=f"Snapshot {idx + 1}", use_container_width=True)
+                    st.image(str(snapshot), caption=f"Snapshot {idx + 1}")
                     st.caption(snapshot.name)
         else:
             st.info("No snapshots available yet.")
@@ -421,7 +421,7 @@ elif page == "👤 Face Enrollment":
                 # Only show capture button if we haven't reached target
                 if st.session_state.snapshot_count < num_snapshots:
                     button_text = f"📸 Take Photo ({st.session_state.snapshot_count + 1}/{num_snapshots})"
-                    if st.button(button_text, key="capture_btn", use_container_width=True):
+                    if st.button(button_text, key="capture_btn"):
                         if not name:
                             st.error("⚠️ Please enter a name first!")
                         else:
@@ -471,13 +471,13 @@ elif page == "👤 Face Enrollment":
                         if idx < len(st.session_state.snapshot_collection):
                             with col:
                                 rgb_frame = cv2.cvtColor(st.session_state.snapshot_collection[idx], cv2.COLOR_BGR2RGB)
-                                st.image(rgb_frame, caption=f"Snapshot {idx + 1}", use_container_width=True)
+                                st.image(rgb_frame, caption=f"Snapshot {idx + 1}")
                 
                 # Action buttons
                 col_x, col_y, col_z = st.columns(3)
                 
                 with col_x:
-                    if st.button("✅ Enroll All Snapshots", key="enroll_multi", use_container_width=True):
+                    if st.button("✅ Enroll All Snapshots", key="enroll_multi"):
                         with st.spinner(f"🎯 Enrolling {len(st.session_state.snapshot_collection)} snapshots for {st.session_state.get('captured_name', name)}..."):
                             try:
                                 enrolled_count = 0
@@ -524,7 +524,7 @@ elif page == "👤 Face Enrollment":
                                 st.code(traceback.format_exc(), language="python")
                 
                 with col_y:
-                    if st.button("🔄 Start Over", key="restart_capture", use_container_width=True):
+                    if st.button("🔄 Start Over", key="restart_capture"):
                         # Release camera
                         print("[DEBUG] Releasing camera for restart...")
                         st.session_state.security_manager.camera.release()
@@ -535,7 +535,7 @@ elif page == "👤 Face Enrollment":
                 
                 with col_z:
                     if st.session_state.snapshot_count < num_snapshots:
-                        if st.button("➕ Add More Snapshots", key="add_more", use_container_width=True):
+                        if st.button("➕ Add More Snapshots", key="add_more"):
                             st.info("Click '📸 Take Photo' button above to continue capturing!")
             
             # Legacy single capture section removed - now everything is multi-snapshot!
@@ -549,9 +549,9 @@ elif page == "👤 Face Enrollment":
             if uploaded_file is not None:
                 # Display preview
                 image = Image.open(uploaded_file)
-                st.image(image, caption="Preview", use_container_width=True)
+                st.image(image, caption="Preview")
                 
-                if st.button("🎯 Enroll Face", key="enroll_btn", use_container_width=True):
+                if st.button("🎯 Enroll Face", key="enroll_btn"):
                     if not name:
                         st.error("⚠️ Please enter a name first!")
                     else:
@@ -802,7 +802,7 @@ elif page == "📈 Forensics Timeline":
         export_col1, export_col2 = st.columns([3, 1])
         
         with export_col2:
-            if st.button("📥 Export to CSV", use_container_width=True):
+            if st.button("📥 Export to CSV"):
                 import csv
                 import io
                 
@@ -891,14 +891,14 @@ elif page == "📈 Forensics Timeline":
                 with event_col2:
                     # Show snapshot if available
                     if snapshot_path and Path(snapshot_path).exists():
-                        st.image(str(snapshot_path), caption="Event Snapshot", use_container_width=True)
+                        st.image(str(snapshot_path), caption="Event Snapshot")
                         
                         # Check for annotated version
                         snapshot_file = Path(snapshot_path)
                         annotated_path = snapshot_file.parent / f"{snapshot_file.stem}_annotated{snapshot_file.suffix}"
                         
                         if annotated_path.exists():
-                            st.image(str(annotated_path), caption="Annotated Snapshot", use_container_width=True)
+                            st.image(str(annotated_path), caption="Annotated Snapshot")
                     else:
                         st.info("No snapshot available")
                 
@@ -951,6 +951,15 @@ elif page == "📈 Forensics Timeline":
 elif page == "🔍 Intruder Patterns":
     st.title("🔍 Intruder Patterns - Repeat Offenders")
     st.markdown("Track and identify repeat unauthorized access attempts 🚨")
+    
+    # Load config
+    try:
+        config = st.session_state.config_manager._config
+        if not config:
+            config = st.session_state.config_manager.load()
+    except Exception as e:
+        st.error(f"❌ Failed to load config: {e}")
+        st.stop()
     
     # Check if pattern detection is enabled
     pattern_config = config.get('senthium', {}).get('security', {}).get('intruder_patterns', {})
@@ -1088,7 +1097,7 @@ elif page == "🔍 Intruder Patterns":
                                             if snapshot_file.exists():
                                                 try:
                                                     img = Image.open(snapshot_file)
-                                                    cols[idx % 5].image(img, use_container_width=True)
+                                                    cols[idx % 5].image(img)
                                                 except Exception as e:
                                                     cols[idx % 5].error(f"Error loading image: {e}")
                                             else:
@@ -1271,7 +1280,7 @@ elif page == "⚙️ Settings":
         col_save, col_test = st.columns(2)
         
         with col_save:
-            if st.button("💾 Save Discord Config", key="save_discord", use_container_width=True):
+            if st.button("💾 Save Discord Config", key="save_discord"):
                 print(f"🔍 DEBUG: Saving Discord - Enabled={discord_enabled}, URL={'SET' if discord_webhook else 'EMPTY'}")
                 
                 if st.session_state.config_manager.update_discord(discord_webhook or "", discord_enabled):
@@ -1290,7 +1299,7 @@ elif page == "⚙️ Settings":
                     st.error("❌ Failed to save configuration")
         
         with col_test:
-            if st.button("🧪 Test Discord Alert", key="test_discord", use_container_width=True, disabled=not discord_webhook):
+            if st.button("🧪 Test Discord Alert", key="test_discord", disabled=not discord_webhook):
                 print(f"🧪 DEBUG: Testing Discord webhook...")
                 try:
                     test_payload = {
@@ -1344,7 +1353,7 @@ elif page == "⚙️ Settings":
         col_save, col_test = st.columns(2)
         
         with col_save:
-            if st.button("💾 Save Email Config", key="save_email", use_container_width=True):
+            if st.button("💾 Save Email Config", key="save_email"):
                 print(f"🔍 DEBUG: Saving Email - Enabled={email_enabled}, Server={smtp_server}, Port={smtp_port}")
                 print(f"🔍 DEBUG: Email - Username={smtp_username}, Recipient={recipient_email}")
                 
@@ -1371,7 +1380,7 @@ elif page == "⚙️ Settings":
         
         with col_test:
             test_disabled = not (smtp_server and smtp_username and smtp_password and recipient_email)
-            if st.button("🧪 Test Email Alert", key="test_email", use_container_width=True, disabled=test_disabled):
+            if st.button("🧪 Test Email Alert", key="test_email", disabled=test_disabled):
                 print(f"🧪 DEBUG: Testing Email SMTP connection...")
                 try:
                     import smtplib
@@ -1691,7 +1700,7 @@ elif page == "⚙️ Settings":
             for idx, (col, sample) in enumerate(zip(cols, st.session_state.calibration_owner_samples)):
                 with col:
                     rgb = cv2.cvtColor(sample['frame'], cv2.COLOR_BGR2RGB)
-                    st.image(rgb, caption=f"Owner {idx+1}", use_container_width=True)
+                    st.image(rgb, caption=f"Owner {idx+1}")
     
     # Step 2: Collect Stranger Samples
     with st.expander("🚫 Step 2: Show STRANGER Faces (Not You)", expanded=len(st.session_state.calibration_owner_samples) >= 5 and len(st.session_state.calibration_stranger_samples) < 3):
@@ -1746,14 +1755,14 @@ elif page == "⚙️ Settings":
             for idx, (col, sample) in enumerate(zip(cols, st.session_state.calibration_stranger_samples)):
                 with col:
                     rgb = cv2.cvtColor(sample['frame'], cv2.COLOR_BGR2RGB)
-                    st.image(rgb, caption=f"Stranger {idx+1}", use_container_width=True)
+                    st.image(rgb, caption=f"Stranger {idx+1}")
     
     # Step 3: Analyze and Recommend
     if len(st.session_state.calibration_owner_samples) >= 3 and len(st.session_state.calibration_stranger_samples) >= 2:
         st.markdown("---")
         st.subheader("📊 Analysis & Recommendation")
         
-        if st.button("🎯 Analyze & Get Recommendation", key="cal_analyze", use_container_width=True):
+        if st.button("🎯 Analyze & Get Recommendation", key="cal_analyze"):
             with st.spinner("🔍 Analyzing face distances..."):
                 import numpy as np
                 
@@ -1821,7 +1830,7 @@ elif page == "⚙️ Settings":
                 """)
                 
                 # Apply button
-                if st.button("✅ Apply This Threshold", key="cal_apply", use_container_width=True):
+                if st.button("✅ Apply This Threshold", key="cal_apply"):
                     if st.session_state.config_manager.update_monitoring(
                         check_interval=st.session_state.config_manager.get('senthium.security.monitoring.check_interval_seconds', 10),
                         recognition_tolerance=safety_threshold,
@@ -1901,7 +1910,7 @@ elif page == "⚙️ Settings":
     action_col1, action_col2, action_col3 = st.columns(3)
     
     with action_col1:
-        if st.button("🔒 Encrypt All Snapshots", use_container_width=True):
+        if st.button("🔒 Encrypt All Snapshots"):
             with st.spinner("Encrypting all snapshots..."):
                 try:
                     from src.utils.snapshot_encryption import SnapshotEncryption
@@ -1920,7 +1929,7 @@ elif page == "⚙️ Settings":
                     st.error(f"❌ Encryption failed: {e}")
     
     with action_col2:
-        if st.button("🔓 Decrypt All Snapshots", use_container_width=True):
+        if st.button("🔓 Decrypt All Snapshots"):
             with st.spinner("Decrypting all snapshots..."):
                 try:
                     from src.utils.snapshot_encryption import SnapshotEncryption
@@ -1938,7 +1947,7 @@ elif page == "⚙️ Settings":
                     st.error(f"❌ Decryption failed: {e}")
     
     with action_col3:
-        if st.button("🗑️ Delete Plaintext Backups", use_container_width=True, type="secondary"):
+        if st.button("🗑️ Delete Plaintext Backups", type="secondary"):
             with st.warning("⚠️ This will permanently delete unencrypted .jpg files!"):
                 if st.button("⚠️ Confirm Delete", key="confirm_delete_plaintext"):
                     try:

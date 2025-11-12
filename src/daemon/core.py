@@ -89,19 +89,28 @@ class SenthiumDaemon:
             
             # Initialize IPC server for CLI communication
             # Enable for tests via environment variable
-            enable_ipc = os.getenv('SENTHIUM_ENABLE_IPC', 'false').lower() == 'true'
+            enable_ipc_env = os.getenv('SENTHIUM_ENABLE_IPC', 'NOT_SET')
+            print(f"[DEBUG IPC INIT] SENTHIUM_ENABLE_IPC={enable_ipc_env}")
+            
+            enable_ipc = enable_ipc_env.lower() == 'true'
+            
+            self.logger.debug(f"[IPC] Environment: SENTHIUM_ENABLE_IPC={enable_ipc_env}")
+            self.logger.debug(f"[IPC] Enabled: {enable_ipc}")
             
             if enable_ipc:
                 try:
                     from src.ipc.channel import IPCServer
                     self.ipc_server = IPCServer()
                     self.logger.info("✅ IPC server enabled (test mode)")
-                except ImportError:
+                    print("[DEBUG IPC INIT] IPC server created successfully!")
+                except ImportError as e:
                     self.ipc_server = None
-                    self.logger.warning("⚠️  IPC module not available")
+                    self.logger.warning(f"⚠️  IPC module not available: {e}")
+                    print(f"[DEBUG IPC INIT] ImportError: {e}")
             else:
                 self.ipc_server = None
                 self.logger.info("⚠️  IPC server disabled (daemon-only mode, use Streamlit UI for control)")
+                print("[DEBUG IPC INIT] IPC disabled by config")
             
             # Initialize activity logger
             self.activity_logger = ActivityLogger()
@@ -522,11 +531,18 @@ class SenthiumDaemon:
         
         # Start IPC server if enabled
         if self.ipc_server:
+            print("[DEBUG] Starting IPC server...")
             try:
                 self.ipc_server.start()
                 self.logger.info("✅ IPC server started")
+                print("[DEBUG] IPC server started successfully!")
             except Exception as e:
                 self.logger.error(f"Failed to start IPC server: {e}")
+                print(f"[DEBUG] IPC server start failed: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print("[DEBUG] self.ipc_server is None - not starting")
         
         self.logger.info("=" * 70)
         self.logger.info("🚀 Senthium Daemon Started!")
@@ -675,7 +691,9 @@ class SenthiumDaemon:
     
     def stop(self):
         """Request daemon to stop (can be called externally)"""
+        import traceback
         self.logger.info("Stop requested externally")
+        self.logger.debug(f"Stop called from:\n{''.join(traceback.format_stack())}")
         self._shutdown_requested = True
 
 

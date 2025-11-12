@@ -27,12 +27,14 @@ IS_WINDOWS = platform.system() == "Windows"
 # type: ignore - pywin32 optional dependency, suppress all type warnings
 win32pipe = None  # type: ignore
 win32file = None  # type: ignore
+win32event = None  # type: ignore
 pywintypes = None  # type: ignore
 
 if IS_WINDOWS:
     try:
         import win32pipe  # type: ignore
         import win32file  # type: ignore
+        import win32event  # type: ignore
         import pywintypes  # type: ignore
     except ImportError as e:
         # Windows-only dependencies - will fail on Linux/macOS or if pywin32 not installed
@@ -290,23 +292,36 @@ class NamedPipeServer:
         
     def start(self) -> None:
         """Start listening on named pipe"""
+        print(f"[DEBUG PIPE] start() called, pipe_name={self.pipe_name}")
+        
         if win32pipe is None or win32file is None:
+            print("[DEBUG PIPE] ERROR: pywin32 not available!")
             raise RuntimeError("pywin32 not available. Install with: pip install pywin32")
         
-        # Create named pipe with non-blocking mode
-        # type: ignore on entire call due to pywin32 type stubs issues
-        self.pipe_handle = win32pipe.CreateNamedPipe(  # type: ignore
-            self.pipe_name,
-            win32pipe.PIPE_ACCESS_DUPLEX | win32file.FILE_FLAG_OVERLAPPED,  # type: ignore
-            win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_READMODE_MESSAGE | win32pipe.PIPE_WAIT,  # type: ignore
-            win32pipe.PIPE_UNLIMITED_INSTANCES,  # type: ignore
-            4096,  # Out buffer size
-            4096,  # In buffer size
-            0,     # Default timeout
-            None   # Security attributes (default)  # type: ignore
-        )
+        print("[DEBUG PIPE] Creating named pipe...")
         
-        logger.info(f"IPC server listening on {self.pipe_name}")
+        # Create named pipe in blocking mode with timeout
+        # PIPE_WAIT + timeout is recommended over PIPE_NOWAIT on Windows
+        # type: ignore on entire call due to pywin32 type stubs issues
+        try:
+            self.pipe_handle = win32pipe.CreateNamedPipe(  # type: ignore
+                self.pipe_name,
+                win32pipe.PIPE_ACCESS_DUPLEX,  # type: ignore
+                win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_READMODE_MESSAGE | win32pipe.PIPE_WAIT,  # type: ignore
+                win32pipe.PIPE_UNLIMITED_INSTANCES,  # type: ignore
+                4096,  # Out buffer size
+                4096,  # In buffer size
+                100,   # Timeout in milliseconds (100ms for polling)
+                None   # Security attributes (default)  # type: ignore
+            )
+            print(f"[DEBUG PIPE] Pipe handle created: {self.pipe_handle}")
+            logger.info(f"IPC server listening on {self.pipe_name}")
+            print(f"[DEBUG PIPE] Success! Listening on {self.pipe_name}")
+        except Exception as e:
+            print(f"[DEBUG PIPE] FAILED to create pipe: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
     
     def accept_connection(self) -> bool:
         """
@@ -319,39 +334,47 @@ class NamedPipeServer:
             return False
             
         try:
-            # Try non-blocking connect
+            # Non-blocking connect (will return immediately)
             win32pipe.ConnectNamedPipe(self.pipe_handle, None)  # type: ignore
             return True
         except pywintypes.error as e:  # type: ignore
             if e.args[0] == 535:  # ERROR_PIPE_CONNECTED
                 return True
-            elif e.args[0] == 232:  # ERROR_NO_DATA (pipe closing)
+            elif e.args[0] in [232, 233]:  # ERROR_NO_DATA, ERROR_PIPE_NOT_CONNECTED
                 return False
             else:
-                logger.debug(f"Pipe connection attempt: {e}")
+                # Other errors - not connected
                 return False
     
     def receive_message(self) -> Optional[IPCMessage]:
         """
-        Receive message from client.
+        Receive message from client (with 100ms timeout).
+        Pipe was created with 100ms timeout so this won't block forever.
         
         Returns:
-            Parsed IPCMessage or None on error
+            Parsed IPCMessage or None if no message/timeout
         """
         if not self.pipe_handle:
             return None
             
         try:
-            # Read from pipe
+            # Blocking read with timeout (pipe created with 100ms timeout)
             result, data = win32file.ReadFile(self.pipe_handle, 4096)  # type: ignore
             
-            if result == 0:  # Success
+            if result == 0 and data:  # Success
                 message_str = data.decode("utf-8")
                 return IPCMessage.from_json(message_str)
                 
         except pywintypes.error as e:  # type: ignore
-            if e.args[0] != 109:  # Ignore ERROR_BROKEN_PIPE
-                logger.error(f"Error receiving message: {e}")
+            # Common errors:
+            # 109 = ERROR_BROKEN_PIPE (client disconnected)
+            # 232 = ERROR_NO_DATA (timeout - no data available)
+            # 536 = ERROR_IO_INCOMPLETE (operation incomplete)
+            if e.args[0] not in [109, 232, 536]:
+                logger.debug(f"Pipe read error ({e.args[0]}): {e}")
+                
+        except Exception as e:
+            logger.error(f"Error receiving message: {e}")
                 
         return None
     
@@ -378,20 +401,57 @@ class NamedPipeServer:
             return False
     
     def disconnect_client(self) -> None:
-        """Disconnect current client"""
+        """Disconnect current client and prepare for next connection"""
         if self.pipe_handle:
             try:
+                # Disconnect the client
                 win32pipe.DisconnectNamedPipe(self.pipe_handle)  # type: ignore
-            except:
-                pass
+                logger.debug("Client disconnected, pipe ready for next connection")
+            except Exception as e:
+                logger.debug(f"Error disconnecting client: {e}")
+                # On error, recreate the pipe
+                self._recreate_pipe()
     
-    def stop(self) -> None:
-        """Stop server and cleanup"""
+    def _recreate_pipe(self) -> None:
+        """Recreate the named pipe (needed after errors)"""
         if self.pipe_handle:
             try:
                 win32file.CloseHandle(self.pipe_handle)  # type: ignore
             except:
                 pass
+        
+        # Recreate pipe with same settings
+        try:
+            self.pipe_handle = win32pipe.CreateNamedPipe(  # type: ignore
+                self.pipe_name,
+                win32pipe.PIPE_ACCESS_DUPLEX,  # type: ignore
+                win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_READMODE_MESSAGE | win32pipe.PIPE_WAIT,  # type: ignore
+                win32pipe.PIPE_UNLIMITED_INSTANCES,  # type: ignore
+                4096,  # Out buffer size
+                4096,  # In buffer size
+                100,   # Timeout in milliseconds (100ms for polling)
+                None   # Security attributes (default)  # type: ignore
+            )
+            logger.debug("Pipe recreated successfully")
+        except Exception as e:
+            logger.error(f"Failed to recreate pipe: {e}")
+            self.pipe_handle = None
+    
+    def stop(self) -> None:
+        """Stop server and cleanup"""
+        if self.pipe_handle:
+            try:
+                # CRITICAL: Must disconnect before closing on Windows!
+                # Otherwise pipe stays in half-connected state and blocks next test
+                win32pipe.DisconnectNamedPipe(self.pipe_handle)  # type: ignore
+            except:
+                pass  # Might not be connected
+            
+            try:
+                win32file.CloseHandle(self.pipe_handle)  # type: ignore
+            except:
+                pass
+            
             self.pipe_handle = None
             
         logger.info("IPC server stopped")
