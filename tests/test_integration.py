@@ -142,7 +142,16 @@ class TestIPCCommunication:
     def teardown_method(self):
         """Stop daemon after each test"""
         daemon_control.stop_daemon(force=True)  # Force kill for fast cleanup in tests
-        time.sleep(0.5)  # Brief pause to ensure PID file cleanup
+        
+        # Wait for daemon to actually die and cleanup
+        pid_file = PIDFile()
+        timeout = 5
+        start = time.time()
+        while pid_file.is_running() and (time.time() - start) < timeout:
+            time.sleep(0.1)
+        
+        # Extra sleep to ensure IPC pipe cleanup on Windows
+        time.sleep(1)
     
     def test_status_command(self):
         """Test STATUS IPC command"""
