@@ -230,7 +230,7 @@ class TestDaemonControl:
             mock_pidfile_class.return_value = mock_pidfile
             
             # Mock the dynamically imported IPCClient
-            with patch('src.ipc.IPCClient') as mock_ipc_class:
+            with patch('ipc.IPCClient') as mock_ipc_class:
                 mock_client = Mock()
                 mock_response = Mock()
                 mock_response.success = True
