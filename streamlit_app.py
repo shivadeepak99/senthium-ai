@@ -14,13 +14,14 @@ from datetime import datetime
 import os
 import time
 import requests  # For testing webhooks
+import psutil  # For system monitoring
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.vision.security_manager import SecurityManager
 from src.rules.schema import ConfigSchema
-from src.daemon.control import start_daemon, stop_daemon
+from src.daemon.control import start_daemon, stop_daemon, daemon_status, restart_daemon
 from src.utils.config_manager import ConfigManager
 from src.utils.pid import PIDFile
 
@@ -111,7 +112,7 @@ with st.sidebar:
     
     page = st.radio(
         "Choose a page:",
-        ["📊 Dashboard", "👤 Face Enrollment", "🔍 Security Check", "📈 Forensics Timeline", "🔍 Intruder Patterns", "⚙️ Settings"],
+        ["📊 Dashboard", "� System Monitor", "�👤 Face Enrollment", "🔍 Security Check", "📈 Forensics Timeline", "🔍 Intruder Patterns", "👻 Haunting Mode", "⚙️ Settings"],
         label_visibility="collapsed"
     )
     
@@ -121,13 +122,28 @@ with st.sidebar:
     if st.session_state.config_loaded:
         try:
             stats = st.session_state.security_manager.get_stats()
-            st.metric("System Status", "🟢 Active" if stats.get('enabled', False) else "🔴 Disabled")
+            
+            # Check if security is actually enabled in config
+            config = st.session_state.config_manager._config
+            security_config = config.get('senthium', {}).get('security', {})
+            security_enabled = security_config.get('enabled', False)
+            
+            # Debug: Show what we're actually reading
+            # st.write(f"DEBUG: security_enabled = {security_enabled}, config keys = {list(security_config.keys())}")
+            
+            st.metric("System Status", "🟢 ACTIVE" if security_enabled else "🔴 Disabled")
             
             # Daemon status indicator
             pid_file = PIDFile()
             is_daemon_running = pid_file.is_running()
+            daemon_pid = pid_file.get_pid() if is_daemon_running else None
             daemon_status = "🟢 Running" if is_daemon_running else "🔴 Stopped"
-            st.metric("Daemon Status", daemon_status)
+            
+            # Show PID if running
+            if is_daemon_running and daemon_pid:
+                st.metric("Daemon Status", f"{daemon_status} (PID: {daemon_pid})")
+            else:
+                st.metric("Daemon Status", daemon_status)
             
             st.metric("Total Checks", stats.get('total_checks', 0))
             st.metric("Threats Detected", stats.get('threats_detected', 0))
@@ -154,10 +170,27 @@ if page == "📊 Dashboard":
     col_badge, col_pause = st.columns([3, 1])
     
     with col_badge:
-        # Get current state from daemon/security manager
+        # Get current state - prioritize daemon state over session state
         try:
-            stats = st.session_state.security_manager.get_stats()
-            current_state = stats.get('current_state', 'MONITORING')
+            pid_file = PIDFile()
+            is_daemon_running = pid_file.is_running()
+            
+            # Check config for security enabled
+            config = st.session_state.config_manager._config
+            security_enabled = config.get('senthium', {}).get('security', {}).get('enabled', False)
+            
+            # Determine actual current state
+            if not is_daemon_running:
+                current_state = "IDLE"  # Daemon not running
+                status_message = "Daemon stopped - start for 24/7 monitoring"
+            elif not security_enabled:
+                current_state = "PAUSED"  # Security disabled
+                status_message = "Security disabled in config"
+            else:
+                # Get state from security manager (only if enabled)
+                stats = st.session_state.security_manager.get_stats()
+                current_state = stats.get('current_state', 'MONITORING')
+                status_message = "Actively monitoring for threats"
             
             # State badge with emoji and color
             state_emojis = {
@@ -198,7 +231,8 @@ if page == "📊 Dashboard":
             ">
                 <h1 style="margin: 0; font-size: 3rem;">{emoji}</h1>
                 <h2 style="margin: 0.5rem 0 0 0;">CURRENT STATE: {current_state}</h2>
-                <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Last update: {datetime.now().strftime("%H:%M:%S")}</p>
+                <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">{status_message}</p>
+                <p style="margin: 0.3rem 0 0 0; opacity: 0.7; font-size: 0.8rem;">Last update: {datetime.now().strftime("%H:%M:%S")}</p>
             </div>
             """, unsafe_allow_html=True)
         except Exception as e:
@@ -252,6 +286,186 @@ if page == "📊 Dashboard":
                 if st.button("❌ Cancel", key="cancel_pause"):
                     st.session_state['show_pause_options'] = False
                     st.rerun()
+    
+    st.markdown("---")
+    
+    # ===== DAEMON CONTROLS & SYSTEM STATS =====
+    st.subheader("🎛️ System Control & Monitoring")
+    
+    # Row 1: Daemon Controls
+    col_daemon1, col_daemon2 = st.columns([2, 1])
+    
+    with col_daemon1:
+        pid_file = PIDFile()
+        is_running = pid_file.is_running()
+        daemon_pid = pid_file.get_pid() if is_running else None
+        
+        if is_running:
+            st.success(f"🟢 **Background Daemon Running** (PID: {daemon_pid})")
+            st.caption("Continuously monitoring system 24/7")
+        else:
+            st.error("🔴 **Background Daemon Stopped**")
+            st.caption("Start daemon for automatic monitoring")
+    
+    with col_daemon2:
+        # Daemon control buttons
+        btn_col1, btn_col2, btn_col3 = st.columns(3)
+        
+        with btn_col1:
+            if st.button("▶️ Start", key="start_daemon_btn", use_container_width=True, 
+                        disabled=is_running, help="Start background monitoring"):
+                with st.spinner("Starting daemon..."):
+                    try:
+                        result = start_daemon(
+                            config_path="config/config.yaml",
+                            log_level="INFO",
+                            foreground=False
+                        )
+                        if result == 0:
+                            st.success("✅ Daemon started!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to start daemon")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+        
+        with btn_col2:
+            if st.button("⏹️ Stop", key="stop_daemon_btn", use_container_width=True,
+                        disabled=not is_running, help="Stop background monitoring"):
+                with st.spinner("Stopping daemon..."):
+                    try:
+                        result = stop_daemon()
+                        if result == 0:
+                            st.success("✅ Daemon stopped!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to stop daemon")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+        
+        with btn_col3:
+            if st.button("🔄 Restart", key="restart_daemon_btn", use_container_width=True,
+                        disabled=not is_running, help="Restart daemon (apply config changes)"):
+                with st.spinner("Restarting daemon..."):
+                    try:
+                        result = restart_daemon(
+                            config_path="config/config.yaml",
+                            log_level="INFO"
+                        )
+                        if result == 0:
+                            st.success("✅ Daemon restarted!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to restart daemon")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Row 2: System Performance Metrics
+    st.markdown("### 📊 Live System Performance")
+    
+    sys_col1, sys_col2, sys_col3, sys_col4 = st.columns(4)
+    
+    try:
+        # Get real-time system metrics
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        memory = psutil.virtual_memory()
+        disk_io = psutil.disk_io_counters()
+        net_io = psutil.net_io_counters()
+        
+        # Calculate delta (simplified - you can enhance this with history)
+        with sys_col1:
+            st.metric(
+                label="💻 CPU Usage",
+                value=f"{cpu_percent:.1f}%",
+                delta=f"+{cpu_percent - 50:.1f}%" if cpu_percent > 50 else f"{cpu_percent - 50:.1f}%",
+                help="Current CPU utilization"
+            )
+        
+        with sys_col2:
+            st.metric(
+                label="🧠 Memory",
+                value=f"{memory.percent:.1f}%",
+                delta=f"{memory.available / (1024**3):.1f}GB free",
+                help=f"Using {memory.used / (1024**3):.1f}GB of {memory.total / (1024**3):.1f}GB"
+            )
+        
+        with sys_col3:
+            disk_read_mb = disk_io.read_bytes / (1024**2)
+            disk_write_mb = disk_io.write_bytes / (1024**2)
+            st.metric(
+                label="💾 Disk I/O",
+                value=f"{(disk_read_mb + disk_write_mb) / 1024:.2f}GB",
+                delta=f"↓{disk_read_mb / 1024:.2f}GB ↑{disk_write_mb / 1024:.2f}GB",
+                help="Total disk read/write since boot"
+            )
+        
+        with sys_col4:
+            net_sent_mb = net_io.bytes_sent / (1024**2)
+            net_recv_mb = net_io.bytes_recv / (1024**2)
+            st.metric(
+                label="🌐 Network I/O",
+                value=f"{(net_sent_mb + net_recv_mb) / 1024:.2f}GB",
+                delta=f"↓{net_recv_mb / 1024:.2f}GB ↑{net_sent_mb / 1024:.2f}GB",
+                help="Total network traffic since boot"
+            )
+    except Exception as e:
+        st.error(f"Error loading system metrics: {e}")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Row 3: Active Rules Display
+    st.markdown("### 📋 Active Sleep Prevention Rules")
+    
+    try:
+        config_manager = st.session_state.config_manager
+        config = config_manager._config
+        rules = config.get('senthium', {}).get('rules', [])
+        
+        if rules:
+            rules_col1, rules_col2 = st.columns(2)
+            
+            enabled_rules = [r for r in rules if r.get('enabled', False)]
+            disabled_rules = [r for r in rules if not r.get('enabled', False)]
+            
+            with rules_col1:
+                st.markdown("**✅ Enabled Rules:**")
+                if enabled_rules:
+                    for rule in enabled_rules:
+                        rule_type = rule.get('type', 'unknown')
+                        rule_name = rule.get('name', 'Unnamed')
+                        
+                        type_icons = {
+                            'process': '🖥️',
+                            'cpu': '💻',
+                            'disk': '💾',
+                            'network': '🌐',
+                            'schedule': '⏰',
+                            'combined': '🔗'
+                        }
+                        
+                        icon = type_icons.get(rule_type, '📌')
+                        st.info(f"{icon} **{rule_name}** ({rule_type})")
+                else:
+                    st.warning("No enabled rules")
+            
+            with rules_col2:
+                st.markdown("**⏸️ Disabled Rules:**")
+                if disabled_rules:
+                    for rule in disabled_rules:
+                        rule_type = rule.get('type', 'unknown')
+                        rule_name = rule.get('name', 'Unnamed')
+                        st.text(f"⚪ {rule_name} ({rule_type})")
+                else:
+                    st.success("All rules enabled!")
+        else:
+            st.warning("⚠️ No rules configured. System will not prevent sleep automatically.")
+    except Exception as e:
+        st.error(f"Error loading rules: {e}")
     
     st.markdown("---")
     
@@ -365,6 +579,159 @@ if page == "📊 Dashboard":
             st.info("No snapshots available yet.")
     else:
         st.info("No snapshots directory found.")
+
+# ==================== SYSTEM MONITOR PAGE ====================
+elif page == "📈 System Monitor":
+    st.title("📈 Real-Time System Monitor")
+    st.markdown("Live performance metrics and process monitoring")
+    
+    # Auto-refresh
+    st_autorefresh = st.empty()
+    with st_autorefresh:
+        st.caption("🔄 Auto-refreshing every 2 seconds...")
+    
+    # System Performance Gauges
+    st.subheader("💻 System Performance")
+    
+    try:
+        # Get real-time metrics
+        cpu_percent = psutil.cpu_percent(interval=0.5, percpu=False)
+        cpu_per_core = psutil.cpu_percent(interval=0.5, percpu=True)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        disk_io = psutil.disk_io_counters()
+        net_io = psutil.net_io_counters()
+        
+        # Row 1: Main Metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric(
+                "💻 CPU Usage",
+                f"{cpu_percent:.1f}%",
+                delta=f"{'High' if cpu_percent > 70 else 'Normal'}" if cpu_percent > 50 else "Low",
+                help=f"Average across {len(cpu_per_core)} cores"
+            )
+        
+        with col2:
+            st.metric(
+                "🧠 Memory",
+                f"{memory.percent:.1f}%",
+                delta=f"{memory.available / (1024**3):.1f}GB free",
+                help=f"Using {memory.used / (1024**3):.1f}GB / {memory.total / (1024**3):.1f}GB"
+            )
+        
+        with col3:
+            st.metric(
+                "💾 Disk Usage",
+                f"{disk.percent:.1f}%",
+                delta=f"{disk.free / (1024**3):.0f}GB free",
+                help=f"Using {disk.used / (1024**3):.0f}GB / {disk.total / (1024**3):.0f}GB"
+            )
+        
+        with col4:
+            boot_time = datetime.fromtimestamp(psutil.boot_time())
+            uptime = datetime.now() - boot_time
+            uptime_hours = int(uptime.total_seconds() / 3600)
+            st.metric(
+                "⏱️ System Uptime",
+                f"{uptime_hours}h",
+                delta=f"{uptime.days} days",
+                help=f"Booted at {boot_time.strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Row 2: CPU Per-Core Usage
+        st.subheader("🔥 CPU Per-Core Usage")
+        
+        if len(cpu_per_core) <= 16:
+            cores_per_row = 4
+        else:
+            cores_per_row = 8
+        
+        cores_cols = st.columns(cores_per_row)
+        for idx, core_usage in enumerate(cpu_per_core):
+            with cores_cols[idx % cores_per_row]:
+                color = "🟢" if core_usage < 50 else "🟡" if core_usage < 80 else "🔴"
+                st.metric(f"{color} Core {idx}", f"{core_usage:.0f}%")
+        
+        st.markdown("---")
+        
+        # Row 3: Disk & Network I/O
+        st.subheader("📊 I/O Statistics")
+        
+        io_col1, io_col2 = st.columns(2)
+        
+        with io_col1:
+            st.markdown("### 💾 Disk I/O (Since Boot)")
+            disk_read_gb = disk_io.read_bytes / (1024**3)
+            disk_write_gb = disk_io.write_bytes / (1024**3)
+            
+            st.metric("📥 Read", f"{disk_read_gb:.2f} GB")
+            st.metric("📤 Write", f"{disk_write_gb:.2f} GB")
+            st.metric("📊 Total", f"{disk_read_gb + disk_write_gb:.2f} GB")
+        
+        with io_col2:
+            st.markdown("### 🌐 Network I/O (Since Boot)")
+            net_recv_gb = net_io.bytes_recv / (1024**3)
+            net_sent_gb = net_io.bytes_sent / (1024**3)
+            
+            st.metric("📥 Received", f"{net_recv_gb:.2f} GB")
+            st.metric("📤 Sent", f"{net_sent_gb:.2f} GB")
+            st.metric("📊 Total", f"{net_recv_gb + net_sent_gb:.2f} GB")
+        
+        st.markdown("---")
+        
+        # Row 4: Process List
+        st.subheader("🖥️ Top Processes by CPU")
+        
+        # Get all processes
+        processes = []
+        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent', 'status']):
+            try:
+                pinfo = proc.info
+                if pinfo['cpu_percent'] is not None and pinfo['cpu_percent'] > 0:
+                    processes.append(pinfo)
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+        
+        # Sort by CPU usage
+        processes = sorted(processes, key=lambda x: x['cpu_percent'], reverse=True)[:20]
+        
+        # Display as table
+        if processes:
+            # Create table data
+            import pandas as pd
+            df = pd.DataFrame(processes)
+            df = df[['name', 'pid', 'cpu_percent', 'memory_percent', 'status']]
+            df.columns = ['Process Name', 'PID', 'CPU %', 'Memory %', 'Status']
+            df['CPU %'] = df['CPU %'].round(1)
+            df['Memory %'] = df['Memory %'].round(1)
+            
+            # Add search
+            search = st.text_input("🔍 Search processes:", placeholder="e.g., python, chrome, code")
+            
+            if search:
+                df = df[df['Process Name'].str.contains(search, case=False, na=False)]
+            
+            st.dataframe(
+                df,
+                use_container_width=True,
+                height=400
+            )
+            
+            st.caption(f"Showing top {len(df)} processes (filtered by CPU usage > 0%)")
+        else:
+            st.info("No active processes found")
+        
+        # Auto-refresh trigger
+        time.sleep(2)
+        st.rerun()
+        
+    except Exception as e:
+        st.error(f"❌ Error loading system metrics: {e}")
+        st.exception(e)
 
 # ==================== FACE ENROLLMENT PAGE ====================
 elif page == "👤 Face Enrollment":
