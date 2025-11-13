@@ -932,7 +932,7 @@ elif page == "🎓 AI Training":
                                   cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
                 
                 # Show frame
-                video_placeholder.image(frame, channels="BGR", use_container_width=True)
+                video_placeholder.image(frame, channels="BGR", use_column_width=True)
                 
                 # Update metrics
                 frames_captured_metric.metric("📸 Frames Captured", len(trainer.frames))
