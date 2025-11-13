@@ -5,9 +5,8 @@
 **CSE 311 - Artificial Intelligence**  
 **Course Project Report**
 
-**Student Name:** [Your Name Here]  
-**Register Number:** [Your Register Number]  
-**Academic Year:** 2024-2025  
+**Student Name:** Shanigaram Shivadeepak
+**Register Number:** 2023bcd0048  
 **Date:** November 13, 2025
 
 ---
