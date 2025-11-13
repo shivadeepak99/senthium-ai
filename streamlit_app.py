@@ -450,46 +450,51 @@ if page == "📊 Dashboard":
     try:
         config_manager = st.session_state.config_manager
         config = config_manager._config
-        rules = config.get('senthium', {}).get('rules', [])
         
-        if rules:
-            rules_col1, rules_col2 = st.columns(2)
-            
-            enabled_rules = [r for r in rules if r.get('enabled', False)]
-            disabled_rules = [r for r in rules if not r.get('enabled', False)]
-            
-            with rules_col1:
-                st.markdown("**✅ Enabled Rules:**")
-                if enabled_rules:
-                    for rule in enabled_rules:
-                        rule_type = rule.get('type', 'unknown')
-                        rule_name = rule.get('name', 'Unnamed')
-                        
-                        type_icons = {
-                            'process': '🖥️',
-                            'cpu': '💻',
-                            'disk': '💾',
-                            'network': '🌐',
-                            'schedule': '⏰',
-                            'combined': '🔗'
-                        }
-                        
-                        icon = type_icons.get(rule_type, '📌')
-                        st.info(f"{icon} **{rule_name}** ({rule_type})")
-                else:
-                    st.warning("No enabled rules")
-            
-            with rules_col2:
-                st.markdown("**⏸️ Disabled Rules:**")
-                if disabled_rules:
-                    for rule in disabled_rules:
-                        rule_type = rule.get('type', 'unknown')
-                        rule_name = rule.get('name', 'Unnamed')
-                        st.text(f"⚪ {rule_name} ({rule_type})")
-                else:
-                    st.success("All rules enabled!")
+        # Safety check for None config
+        if config is None or not isinstance(config, dict):
+            st.warning("⚠️ Config not loaded yet. Refresh the page.")
         else:
-            st.warning("⚠️ No rules configured. System will not prevent sleep automatically.")
+            rules = config.get('senthium', {}).get('rules', [])
+            
+            if rules:
+                rules_col1, rules_col2 = st.columns(2)
+                
+                enabled_rules = [r for r in rules if r.get('enabled', False)]
+                disabled_rules = [r for r in rules if not r.get('enabled', False)]
+                
+                with rules_col1:
+                    st.markdown("**✅ Enabled Rules:**")
+                    if enabled_rules:
+                        for rule in enabled_rules:
+                            rule_type = rule.get('type', 'unknown')
+                            rule_name = rule.get('name', 'Unnamed')
+                            
+                            type_icons = {
+                                'process': '🖥️',
+                                'cpu': '💻',
+                                'disk': '💾',
+                                'network': '🌐',
+                                'schedule': '⏰',
+                                'combined': '🔗'
+                            }
+                            
+                            icon = type_icons.get(rule_type, '📌')
+                            st.info(f"{icon} **{rule_name}** ({rule_type})")
+                    else:
+                        st.warning("No enabled rules")
+                
+                with rules_col2:
+                    st.markdown("**⏸️ Disabled Rules:**")
+                    if disabled_rules:
+                        for rule in disabled_rules:
+                            rule_type = rule.get('type', 'unknown')
+                            rule_name = rule.get('name', 'Unnamed')
+                            st.text(f"⚪ {rule_name} ({rule_type})")
+                    else:
+                        st.success("All rules enabled!")
+            else:
+                st.warning("⚠️ No rules configured. System will not prevent sleep automatically.")
     except Exception as e:
         st.error(f"Error loading rules: {e}")
     
@@ -552,6 +557,38 @@ if page == "📊 Dashboard":
     # Add start_time to session state if not present
     if 'start_time' not in st.session_state:
         st.session_state['start_time'] = time.time()
+    
+    st.markdown("---")
+    
+    # Daemon Logs Section (NEW!)
+    st.subheader("📋 Daemon Activity Log")
+    
+    log_file = Path("logs/senthium.log")
+    if log_file.exists():
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                # Read last 30 lines
+                lines = f.readlines()
+                recent_logs = lines[-30:] if len(lines) > 30 else lines
+            
+            if recent_logs:
+                # Filter to today's logs only
+                today = datetime.now().strftime("%Y-%m-%d")
+                today_logs = [line for line in recent_logs if today in line]
+                
+                if today_logs:
+                    log_container = st.container()
+                    with log_container:
+                        st.code('\n'.join(today_logs), language="log")
+                else:
+                    st.warning(f"⚠️ No logs from today ({today}). Daemon may not be logging properly.")
+                    st.info("💡 **Tip:** The daemon runs in background mode. Check if security monitoring is enabled in Settings.")
+            else:
+                st.info("Log file is empty")
+        except Exception as e:
+            st.error(f"Error reading logs: {e}")
+    else:
+        st.info("No log file found. Start the daemon to generate logs.")
     
     st.markdown("---")
     
@@ -769,6 +806,68 @@ elif page == "📈 System Monitor":
 elif page == "🎓 AI Training":
     st.title("🎓 AI Training - Dynamic Face Learning")
     st.markdown("**Train the AI model with 1-minute video capture for optimal recognition accuracy**")
+    
+    # Show currently trained faces
+    st.markdown("---")
+    st.subheader("👥 Trained Users Database")
+    
+    try:
+        # Load authorized faces
+        faces_file = Path("config/faces/authorized.json")
+        
+        if faces_file.exists():
+            with open(faces_file, 'r') as f:
+                face_db = json.load(f)
+            
+            if face_db:
+                st.success(f"✅ **{len(face_db)}** user(s) trained in the system")
+                
+                # Display each user
+                cols = st.columns(min(4, len(face_db)))
+                for idx, (name, encodings) in enumerate(face_db.items()):
+                    with cols[idx % 4]:
+                        # Check if it's array format (list of encodings) or dict format
+                        if isinstance(encodings, list):
+                            # Old format: list of encodings
+                            num_encodings = len(encodings)
+                            training_method = "Unknown"
+                            training_date = "N/A"
+                        elif isinstance(encodings, dict):
+                            # New format with metadata
+                            num_encodings = encodings.get('num_frames', 1)
+                            training_method = encodings.get('training_method', 'Manual')
+                            training_date = encodings.get('trained_at', 'N/A')
+                        else:
+                            num_encodings = 1
+                            training_method = "Unknown"
+                            training_date = "N/A"
+                        
+                        st.info(f"""
+                        **👤 {name}**  
+                        📊 Samples: {num_encodings}  
+                        🎓 Method: {training_method}  
+                        📅 Date: {training_date}
+                        """)
+                
+                # Check training data directory
+                training_dir = Path("data/training")
+                if training_dir.exists():
+                    training_sessions = list(training_dir.glob("*/"))
+                    if training_sessions:
+                        with st.expander(f"📂 View Training History ({len(training_sessions)} sessions)"):
+                            for session_dir in sorted(training_sessions, reverse=True):
+                                session_name = session_dir.name
+                                session_files = list(session_dir.glob("*"))
+                                st.text(f"📁 {session_name} ({len(session_files)} files)")
+            else:
+                st.warning("⚠️ No users trained yet. Train your first user below!")
+        else:
+            st.warning("⚠️ No training database found. Train your first user below!")
+    
+    except Exception as e:
+        st.error(f"Error loading training database: {e}")
+    
+    st.markdown("---")
     
     st.info("""
     ### 🧠 How AI Training Works:
