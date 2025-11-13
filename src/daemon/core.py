@@ -574,14 +574,17 @@ class SenthiumDaemon:
                     time.sleep(self.poll_interval)
                     continue
                 
-                print(f"[DEBUG] About to check security (enabled={self.security_enabled})...")
+                logger.debug(f"About to check security (enabled={self.security_enabled})...")
                 # 🔒 AI SECURITY CHECK (v0.6.0)
                 # Perform face recognition security check if enabled
                 if self.security_enabled and self.security_manager is not None:
                     try:
                         # Only check every N polls (security_check_interval)
+                        logger.debug(f"poll_count={self.stats['poll_count']}, interval={self.security_check_interval}, modulo={self.stats['poll_count'] % self.security_check_interval}")
                         if self.stats['poll_count'] % self.security_check_interval == 0:
+                            logger.debug(f"🎯 Running security check now...")
                             security_result = self.security_manager.perform_security_check()
+                            logger.debug(f"Security result: {security_result}")
                             
                             # Log security events (handle all response types)
                             if security_result:
@@ -721,8 +724,12 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    # Setup logging
+    # Setup logging - configure BOTH root logger and specific 'senthium' logger
+    # Root logger configuration ensures ALL child modules (security_manager, detector, recognizer) inherit it
+    root_logger = setup_logger('', level=args.log_level)  # '' = root logger
     logger = setup_logger('senthium', level=args.log_level)
+    
+    logger.debug(f"Logging configured: level={args.log_level}, root logger and 'senthium' logger initialized")
     
     # Use PID file to prevent multiple instances
     pid_file = PIDFile()

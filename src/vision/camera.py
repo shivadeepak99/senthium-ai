@@ -110,17 +110,17 @@ class CameraMonitor:
             logger.error(f"❌ Frame capture error: {e}")
             return None
     
-    def capture_and_save(self, prefix: str = "security") -> Optional[Tuple[str, np.ndarray]]:
+    def save_frame(self, frame: np.ndarray, prefix: str = "security") -> Optional[str]:
         """
-        Capture frame and save to disk with timestamp.
+        Save an existing frame to disk with timestamp.
         
         Args:
-            prefix: Filename prefix (e.g., 'security', 'alert', 'authorized')
+            frame: BGR image array to save
+            prefix: Filename prefix (e.g., 'intruder', 'alert', 'authorized')
             
         Returns:
-            Tuple of (filepath, frame) or None if failed
+            Filepath where frame was saved, or None if failed
         """
-        frame = self.capture_frame()
         if frame is None:
             return None
         
@@ -134,11 +134,32 @@ class CameraMonitor:
             cv2.imwrite(str(filepath), frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
             
             logger.debug(f"💾 Snapshot saved: {filename}")
-            return (str(filepath), frame)
+            return str(filepath)
             
         except Exception as e:
             logger.error(f"❌ Failed to save snapshot: {e}")
             return None
+    
+    def capture_and_save(self, prefix: str = "security") -> Optional[Tuple[str, np.ndarray]]:
+        """
+        Capture frame and save to disk with timestamp.
+        
+        DEPRECATED: Use capture_frame() + save_frame() for better control!
+        
+        Args:
+            prefix: Filename prefix (e.g., 'security', 'alert', 'authorized')
+            
+        Returns:
+            Tuple of (filepath, frame) or None if failed
+        """
+        frame = self.capture_frame()
+        if frame is None:
+            return None
+        
+        filepath = self.save_frame(frame, prefix)
+        if filepath:
+            return (filepath, frame)
+        return None
     
     def get_latest_snapshot_path(self) -> Optional[str]:
         """
@@ -156,25 +177,44 @@ class CameraMonitor:
             logger.error(f"❌ Error finding latest snapshot: {e}")
             return None
     
-    def cleanup_old_snapshots(self, max_age_days: int = 7):
+    def cleanup_old_snapshots(self, max_age_days: int = 7, max_files: int = 100):
         """
-        Delete snapshots older than specified days.
+        Delete snapshots older than specified days OR exceeding max file limit.
+        
+        Keeps your disk happy by rotating old snapshots! 🗑️💕
         
         Args:
             max_age_days: Maximum age in days to keep snapshots
+            max_files: Maximum number of snapshot files to keep (newest preserved)
         """
         try:
             from datetime import timedelta
             cutoff = datetime.now() - timedelta(days=max_age_days)
             
+            # Get all snapshots sorted by modification time (oldest first)
+            all_snapshots = sorted(
+                self.snapshot_dir.glob("*.jpg"), 
+                key=lambda p: p.stat().st_mtime
+            )
+            
             deleted_count = 0
-            for snapshot in self.snapshot_dir.glob("*.jpg"):
+            
+            # Delete old snapshots (by age)
+            for snapshot in all_snapshots[:]:  # Copy list to avoid modification issues
                 if datetime.fromtimestamp(snapshot.stat().st_mtime) < cutoff:
+                    snapshot.unlink()
+                    all_snapshots.remove(snapshot)
+                    deleted_count += 1
+            
+            # Delete excess snapshots (by count) - keep newest ones
+            if len(all_snapshots) > max_files:
+                excess = len(all_snapshots) - max_files
+                for snapshot in all_snapshots[:excess]:  # Delete oldest
                     snapshot.unlink()
                     deleted_count += 1
             
             if deleted_count > 0:
-                logger.info(f"🗑️ Cleaned up {deleted_count} old snapshots")
+                logger.info(f"🗑️ Cleaned up {deleted_count} old snapshots (age: {max_age_days}d, max: {max_files} files)")
                 
         except Exception as e:
             logger.error(f"❌ Snapshot cleanup failed: {e}")

@@ -114,7 +114,7 @@ with st.sidebar:
     
     page = st.radio(
         "Choose a page:",
-        ["📊 Dashboard", "📈 System Monitor", "🎓 AI Training", "👤 Face Enrollment", "🔍 Security Check", "📈 Forensics Timeline", "🔍 Intruder Patterns", "👻 Haunting Mode", "⚙️ Settings"],
+        ["📊 Dashboard", "📈 System Monitor", "🎓 AI Training", "👤 Face Enrollment", "🔍 Security Check", "📈 Forensics Timeline", "🔍 Intruder Patterns", "👻 Haunting Mode", "📜 Live Logs", "⚙️ Settings"],
         label_visibility="collapsed"
     )
     
@@ -344,7 +344,7 @@ if page == "📊 Dashboard":
                     try:
                         result = start_daemon(
                             config_path="config/config.yaml",
-                            log_level="INFO",
+                            log_level="DEBUG",  # Changed to DEBUG to see detailed face recognition logs
                             foreground=False
                         )
                         if result == 0:
@@ -378,7 +378,7 @@ if page == "📊 Dashboard":
                     try:
                         result = restart_daemon(
                             config_path="config/config.yaml",
-                            log_level="INFO"
+                            log_level="DEBUG"  # Changed to DEBUG to see detailed logs
                         )
                         if result == 0:
                             st.success("✅ Daemon restarted!")
@@ -1361,7 +1361,8 @@ elif page == "👤 Face Enrollment":
                             st.info("Click '📸 Take Photo' button above to continue capturing!")
             
             # Legacy single capture section removed - now everything is multi-snapshot!
-                        del st.session_state['captured_name']
+                        if 'captured_name' in st.session_state:
+                            del st.session_state['captured_name']
                         st.rerun()
         
         with tab2:
@@ -2490,6 +2491,219 @@ elif page == "👻 Haunting Mode":
     
     else:
         st.info("💡 Enable Haunting Mode to configure spooky deterrence features")
+
+# ==================== LIVE LOGS PAGE ====================
+elif page == "📜 Live Logs":
+    st.title("📜 Live System Logs")
+    st.markdown("Real-time view of daemon activity, security checks, and system events")
+    
+    # Check daemon status
+    pid_file = PIDFile()
+    is_daemon_running = pid_file.is_running()
+    daemon_pid = pid_file.get_pid() if is_daemon_running else None
+    
+    # Status indicator
+    col1, col2, col3 = st.columns([2, 2, 1])
+    
+    with col1:
+        if is_daemon_running:
+            st.success(f"🟢 **Daemon Running** (PID: {daemon_pid})")
+        else:
+            st.error("🔴 **Daemon Stopped**")
+            st.info("💡 Start the daemon from Dashboard to see live logs")
+    
+    with col2:
+        config = st.session_state.config_manager._config
+        if config and isinstance(config, dict):
+            security_enabled = config.get('senthium', {}).get('security', {}).get('enabled', False)
+            if security_enabled:
+                st.success("🔐 **Security: ACTIVE**")
+            else:
+                st.warning("⏸️ **Security: PAUSED**")
+        else:
+            st.warning("⚠️ **Config not loaded**")
+    
+    with col3:
+        auto_refresh = st.checkbox("🔄 Auto-refresh", value=True, help="Refresh logs every 3 seconds")
+    
+    st.markdown("---")
+    
+    # Tabs for different log types
+    log_tab1, log_tab2, log_tab3, log_tab4 = st.tabs([
+        "🔍 Security Checks", 
+        "📊 Daemon Activity", 
+        "🚨 Alerts & Events",
+        "📸 Snapshot History"
+    ])
+    
+    # ===== SECURITY CHECKS TAB =====
+    with log_tab1:
+        st.markdown("### 🔍 Recent Security Checks")
+        st.markdown("*Shows face detection, recognition, and threat assessment*")
+        
+        log_file = Path("logs/senthium.log")
+        
+        if log_file.exists():
+            try:
+                # Read last 100 lines of log file
+                with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                    lines = f.readlines()
+                    recent_lines = lines[-100:]  # Last 100 lines
+                
+                # Filter for security-related logs
+                security_logs = []
+                for line in recent_lines:
+                    if any(keyword in line.lower() for keyword in [
+                        'security check', 'authorized', 'unauthorized', 'intruder', 
+                        'face detected', 'recognized', 'unknown face', 'snapshot'
+                    ]):
+                        security_logs.append(line.strip())
+                
+                if security_logs:
+                    # Show in reverse order (newest first)
+                    st.code('\n'.join(reversed(security_logs[-30:])), language='log')
+                    st.caption(f"Showing last {min(30, len(security_logs))} security-related log entries")
+                else:
+                    st.info("📭 No security check logs yet. Start the daemon with security enabled!")
+                    
+            except Exception as e:
+                st.error(f"❌ Error reading log file: {e}")
+        else:
+            st.warning("📭 Log file not found. Start the daemon to generate logs!")
+    
+    # ===== DAEMON ACTIVITY TAB =====
+    with log_tab2:
+        st.markdown("### 📊 Daemon System Activity")
+        st.markdown("*Shows daemon start/stop, polls, and system events*")
+        
+        if log_file.exists():
+            try:
+                with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                    lines = f.readlines()
+                    recent_lines = lines[-100:]
+                
+                # Filter for daemon-related logs
+                daemon_logs = []
+                for line in recent_lines:
+                    if any(keyword in line.lower() for keyword in [
+                        'daemon', 'starting', 'stopping', 'poll', 'check interval',
+                        'initialized', 'shutdown', 'pid'
+                    ]):
+                        daemon_logs.append(line.strip())
+                
+                if daemon_logs:
+                    st.code('\n'.join(reversed(daemon_logs[-30:])), language='log')
+                    st.caption(f"Showing last {min(30, len(daemon_logs))} daemon activity entries")
+                else:
+                    st.info("📭 No daemon logs yet")
+                    
+            except Exception as e:
+                st.error(f"❌ Error reading log file: {e}")
+        else:
+            st.warning("📭 Log file not found")
+    
+    # ===== ALERTS & EVENTS TAB =====
+    with log_tab3:
+        st.markdown("### 🚨 Alerts & Critical Events")
+        st.markdown("*Shows warnings, errors, and security alerts*")
+        
+        if log_file.exists():
+            try:
+                with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                    lines = f.readlines()
+                    recent_lines = lines[-100:]
+                
+                # Filter for alerts/errors/warnings
+                alert_logs = []
+                for line in recent_lines:
+                    if any(keyword in line for keyword in [
+                        'ERROR', 'WARNING', 'CRITICAL', '🚨', '⚠️', '❌',
+                        'Alert', 'Threat', 'INTRUDER', 'LOCKED'
+                    ]):
+                        alert_logs.append(line.strip())
+                
+                if alert_logs:
+                    st.code('\n'.join(reversed(alert_logs[-30:])), language='log')
+                    st.caption(f"Showing last {min(30, len(alert_logs))} alert entries")
+                else:
+                    st.success("✅ No alerts or errors - system running smoothly!")
+                    
+            except Exception as e:
+                st.error(f"❌ Error reading log file: {e}")
+        else:
+            st.warning("📭 Log file not found")
+    
+    # ===== SNAPSHOT HISTORY TAB =====
+    with log_tab4:
+        st.markdown("### 📸 Recent Snapshots")
+        st.markdown("*Snapshots saved when threats are detected*")
+        
+        snapshot_dir = Path("logs/security/snapshots")
+        
+        if snapshot_dir.exists():
+            try:
+                # Get all snapshot files (newest first)
+                snapshots = sorted(
+                    snapshot_dir.glob("*.jpg"),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True
+                )
+                
+                if snapshots:
+                    st.info(f"📊 **Total snapshots:** {len(snapshots)}")
+                    
+                    # Show only intruder snapshots (after fix)
+                    intruder_snapshots = [s for s in snapshots if 'intruder' in s.name.lower()]
+                    authorized_snapshots = [s for s in snapshots if 'security' in s.name.lower()]
+                    
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.metric("🚨 Intruder Snapshots", len(intruder_snapshots))
+                    with col_b:
+                        st.metric("📸 Security Snapshots (old)", len(authorized_snapshots))
+                    
+                    if authorized_snapshots:
+                        st.warning("⚠️ **Old snapshot format detected!** These are from before the fix. Only intruder snapshots should be created now.")
+                    
+                    # Show recent snapshots
+                    st.markdown("#### 📸 Most Recent Snapshots")
+                    
+                    for idx, snapshot in enumerate(snapshots[:10]):  # Show last 10
+                        with st.expander(f"{'🚨' if 'intruder' in snapshot.name.lower() else '📸'} {snapshot.name}"):
+                            col1, col2 = st.columns([2, 1])
+                            
+                            with col1:
+                                # Display image
+                                try:
+                                    st.image(str(snapshot), use_container_width=True)
+                                except Exception as e:
+                                    st.error(f"Cannot display image: {e}")
+                            
+                            with col2:
+                                # File info
+                                stat = snapshot.stat()
+                                st.write(f"**Size:** {stat.st_size / 1024:.1f} KB")
+                                st.write(f"**Created:** {datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')}")
+                                
+                                # Delete button
+                                if st.button(f"🗑️ Delete", key=f"del_snap_{idx}"):
+                                    snapshot.unlink()
+                                    st.success("✅ Deleted!")
+                                    st.rerun()
+                    
+                else:
+                    st.info("📭 No snapshots yet. Snapshots are created when intruders are detected!")
+                    
+            except Exception as e:
+                st.error(f"❌ Error reading snapshots: {e}")
+        else:
+            st.warning("📭 Snapshot directory not found")
+    
+    # Auto-refresh functionality
+    if auto_refresh and is_daemon_running:
+        import time
+        time.sleep(3)  # Wait 3 seconds
+        st.rerun()
 
 # ==================== SETTINGS PAGE ====================
 elif page == "⚙️ Settings":

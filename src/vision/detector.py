@@ -126,10 +126,10 @@ class FaceDetector:
             face_locations = []
             
             # Parse detections
-            print(f"[DEBUG] DNN detected {detections.shape[2]} potential faces")
+            logger.debug(f"DNN detected {detections.shape[2]} potential faces")
             for i in range(0, detections.shape[2]):
                 confidence = detections[0, 0, i, 2]
-                print(f"[DEBUG] Face {i}: confidence={confidence:.4f}, threshold={self.confidence_threshold}")
+                logger.debug(f"Face {i}: confidence={confidence:.4f}, threshold={self.confidence_threshold}")
                 
                 if confidence > self.confidence_threshold:
                     # Get bounding box
@@ -138,9 +138,9 @@ class FaceDetector:
                     
                     # Convert to (top, right, bottom, left) format
                     face_locations.append((startY, endX, endY, startX))
-                    print(f"[DEBUG] ✅ Face accepted: box=({startY}, {endX}, {endY}, {startX})")
+                    logger.debug(f"✅ Face accepted: box=({startY}, {endX}, {endY}, {startX})")
             
-            print(f"[DEBUG] Total faces accepted: {len(face_locations)}")
+            logger.debug(f"Total faces accepted: {len(face_locations)}")
             self.detection_count += 1
             
             if face_locations:
@@ -213,7 +213,7 @@ class FaceDetector:
                 
                 try:
                     # DEBUG: Log face region size
-                    print(f"[DEBUG] Face region (padded): {face.shape}, resized to: {face_resized.shape}")
+                    logger.debug(f"Face region (padded): {face.shape}, resized to: {face_resized.shape}")
                     
                     # Use DeepFace to extract embeddings (without alignment to avoid detection issues)
                     embedding_objs = DeepFace.represent(
@@ -227,7 +227,7 @@ class FaceDetector:
                     if embedding_objs and len(embedding_objs) > 0:
                         face_data = embedding_objs[0]  # type: ignore
                         embedding = np.array(face_data['embedding'])  # type: ignore
-                        print(f"[DEBUG] Generated embedding: shape={embedding.shape}, first 5 values={embedding[:5]}")
+                        logger.debug(f"Generated embedding: shape={embedding.shape}, first 5 values={embedding[:5]}")
                         encodings.append(embedding)
                     
                 except Exception as e:

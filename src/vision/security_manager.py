@@ -194,45 +194,49 @@ class SecurityManager:
             Dict with check results, or None if check skipped
         """
         if not self.enabled:
+            logger.debug("⏸️ Security check skipped (disabled)")
             return None
         
         self.total_checks += 1
         self.last_check_time = datetime.now()
         
-        logger.debug("🔍 Performing security check...")
+        logger.info(f"🔍 Performing security check #{self.total_checks}...")
         
         try:
-            # Capture frame and save snapshot
-            result = self.camera.capture_and_save(prefix="security")
-            if result is None:
-                logger.warning("⚠️ Camera capture failed")
+            # Capture frame (don't save yet - only save on threats!)
+            logger.debug("📸 Capturing frame from camera...")
+            frame = self.camera.capture_frame()
+            if frame is None:
+                logger.warning("⚠️ Camera capture failed - no frame returned")
                 return {
                     "status": "error",
                     "error": "Camera capture failed",
                     "timestamp": self.last_check_time.isoformat()
                 }
             
-            snapshot_path, frame = result
+            logger.debug(f"✅ Frame captured: {frame.shape}")
             
             # Detect and encode all faces
+            logger.debug("🔎 Detecting and encoding faces...")
             detections = self.detector.detect_and_encode(frame, num_jitters=1)
             
             if not detections:
-                logger.debug("👻 No faces detected")
+                logger.debug("👻 No faces detected in frame")
                 return {
                     "status": "no_faces",
                     "timestamp": self.last_check_time.isoformat(),
-                    "snapshot_path": snapshot_path
+                    "snapshot_path": None
                 }
             
-            logger.debug(f"👥 Detected {len(detections)} face(s)")
+            logger.info(f"👥 Detected {len(detections)} face(s) - analyzing...")
             
             # Recognize each detected face
             recognized_faces = []
             unknown_faces = []
             face_labels = []  # For annotation
             
-            for face_location, face_encoding in detections:
+            for idx, (face_location, face_encoding) in enumerate(detections):
+                logger.debug(f"🧠 Recognizing face {idx+1}/{len(detections)}...")
                 result = self.recognizer.recognize_face(face_encoding)
                 
                 if result:
@@ -247,7 +251,7 @@ class SecurityManager:
                         "distance": confidence,
                         "is_authorized": True
                     })
-                    logger.debug(f"✅ Recognized: {user_name} ({confidence:.2f})")
+                    logger.info(f"✅ Recognized: {user_name} (confidence: {confidence:.2f})")
                 else:
                     unknown_faces.append({
                         "location": face_location,
@@ -258,53 +262,64 @@ class SecurityManager:
                         "distance": 99.99,  # High distance = not recognized
                         "is_authorized": False
                     })
-                    logger.warning("❌ Unknown face detected!")
-                    
-                    # 🔍 Record intruder pattern (if enabled)
+                    logger.warning(f"❌ Unknown face #{idx+1} detected!")
+            
+            # ⚠️ ONLY SAVE SNAPSHOT IF THREAT DETECTED!
+            snapshot_path = None
+            annotated_snapshot_path = None
+            
+            if unknown_faces:
+                # 🚨 INTRUDER! Save snapshot NOW
+                logger.warning(f"🚨 INTRUDER ALERT! Saving snapshot - {len(unknown_faces)} unauthorized face(s)!")
+                snapshot_path = self.camera.save_frame(frame, prefix="intruder")
+                logger.info(f"📸 Snapshot saved: {snapshot_path}")
+                
+                # 🗑️ Auto-cleanup old snapshots (keep max 100, 7 days)
+                cleaned = self.camera.cleanup_old_snapshots(max_age_days=7, max_files=100)
+                if cleaned > 0:
+                    logger.debug(f"🗑️ Cleaned up {cleaned} old snapshot(s)")
+                
+                # Record intruder pattern
+                for unknown in unknown_faces:
                     if self.pattern_detector:
                         is_repeat, pattern = self.pattern_detector.record_intruder(
-                            face_encoding,
+                            unknown['encoding'],
                             timestamp=self.last_check_time.isoformat(),
                             snapshot_path=snapshot_path
                         )
                         
                         if is_repeat and pattern:
-                            logger.warning(f"🚨 REPEAT OFFENDER DETECTED! Pattern: {pattern.pattern_id}")
-                            logger.warning(f"   Total occurrences: {pattern.count}, Threat level: {pattern.get_threat_level()}")
-                            
-                            # Update face label with pattern info
-                            face_labels[-1]["pattern_id"] = pattern.pattern_id
-                            face_labels[-1]["repeat_count"] = pattern.count
-                            face_labels[-1]["threat_level"] = pattern.get_threat_level()
+                            logger.warning(f"🚨 REPEAT OFFENDER! Pattern: {pattern.pattern_id}")
+                            logger.warning(f"   Occurrences: {pattern.count}, Threat: {pattern.get_threat_level()}")
             
-            # 📸 CREATE ANNOTATED SNAPSHOT (with bounding boxes, labels, etc.)
-            annotated_snapshot_path = None
-            try:
-                # Extract just the locations for annotation
-                face_locations_list = [d[0] for d in detections]
-                
-                # Determine alert type for color coding
-                if unknown_faces:
-                    alert_type = "UNAUTHORIZED"
-                elif len(recognized_faces) > 1:
-                    alert_type = "MULTIPLE_FACES"
-                else:
-                    alert_type = "AUTHORIZED"
-                
-                # Create annotated version
-                annotated_snapshot_path = self.annotator.create_annotated_snapshot(
-                    original_snapshot_path=snapshot_path,
-                    face_locations=face_locations_list,
-                    face_labels=face_labels,
-                    alert_type=alert_type
-                )
-                
-                if annotated_snapshot_path:
-                    logger.debug(f"🎨 Annotated snapshot created: {annotated_snapshot_path}")
-                
-            except Exception as e:
-                logger.warning(f"⚠️ Failed to create annotated snapshot: {e}")
-                # Continue anyway - annotation is optional
+            # 📸 CREATE ANNOTATED SNAPSHOT (only if we saved one)
+            if snapshot_path:
+                try:
+                    # Extract just the locations for annotation
+                    face_locations_list = [d[0] for d in detections]
+                    
+                    # Determine alert type for color coding
+                    if unknown_faces:
+                        alert_type = "UNAUTHORIZED"
+                    elif len(recognized_faces) > 1:
+                        alert_type = "MULTIPLE_FACES"
+                    else:
+                        alert_type = "AUTHORIZED"
+                    
+                    # Create annotated version
+                    annotated_snapshot_path = self.annotator.create_annotated_snapshot(
+                        original_snapshot_path=snapshot_path,
+                        face_locations=face_locations_list,
+                        face_labels=face_labels,
+                        alert_type=alert_type
+                    )
+                    
+                    if annotated_snapshot_path:
+                        logger.debug(f"🎨 Annotated snapshot created: {annotated_snapshot_path}")
+                    
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to create annotated snapshot: {e}")
+                    # Continue anyway - annotation is optional
             
             # 🧠 SMART STATE MACHINE LOGIC
             previous_state = self.current_state
