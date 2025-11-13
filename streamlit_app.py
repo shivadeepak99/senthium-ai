@@ -2096,7 +2096,7 @@ elif page == "👻 Haunting Mode":
         
         config['senthium']['haunting_mode']['enabled'] = enable_haunting
         st.session_state.config_manager._config = config
-        st.session_state.config_manager.save_config()
+        st.session_state.config_manager.save()
         st.success(f"✅ Haunting Mode {'enabled' if enable_haunting else 'disabled'}!")
         st.rerun()
     
@@ -2343,7 +2343,7 @@ elif page == "👻 Haunting Mode":
                 })
                 
                 st.session_state.config_manager._config = config
-                st.session_state.config_manager.save_config()
+                st.session_state.config_manager.save()
                 
                 st.success("✅ Haunting configuration saved successfully! 👻")
                 time.sleep(1)
