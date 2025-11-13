@@ -15,6 +15,8 @@ import os
 import time
 import requests  # For testing webhooks
 import psutil  # For system monitoring
+import cv2  # For video processing
+import numpy as np  # For numerical operations
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -104,7 +106,7 @@ if 'security_manager' not in st.session_state:
         st.session_state.config_loaded = False
         st.session_state.error = str(e)
 
-# Sidebar
+
 with st.sidebar:
     st.image("https://via.placeholder.com/200x100/667eea/ffffff?text=SENTHIUM")
     st.title("🔒 Senthium AI")
@@ -112,7 +114,7 @@ with st.sidebar:
     
     page = st.radio(
         "Choose a page:",
-        ["📊 Dashboard", "� System Monitor", "�👤 Face Enrollment", "🔍 Security Check", "📈 Forensics Timeline", "🔍 Intruder Patterns", "👻 Haunting Mode", "⚙️ Settings"],
+        ["📊 Dashboard", "📈 System Monitor", "🎓 AI Training", "👤 Face Enrollment", "🔍 Security Check", "📈 Forensics Timeline", "🔍 Intruder Patterns", "👻 Haunting Mode", "⚙️ Settings"],
         label_visibility="collapsed"
     )
     
@@ -123,10 +125,24 @@ with st.sidebar:
         try:
             stats = st.session_state.security_manager.get_stats()
             
+            # Safety check for None stats FIRST
+            if not stats or not isinstance(stats, dict):
+                stats = {
+                    'total_checks': 0,
+                    'threats_detected': 0,
+                    'authorized_users_count': 0
+                }
+            
             # Check if security is actually enabled in config
             config = st.session_state.config_manager._config
-            security_config = config.get('senthium', {}).get('security', {})
-            security_enabled = security_config.get('enabled', False)
+            
+            # Safety check for config being None
+            if not config or not isinstance(config, dict):
+                security_enabled = False
+                security_config = {}
+            else:
+                security_config = config.get('senthium', {}).get('security', {})
+                security_enabled = security_config.get('enabled', False)
             
             # Debug: Show what we're actually reading
             # st.write(f"DEBUG: security_enabled = {security_enabled}, config keys = {list(security_config.keys())}")
@@ -177,20 +193,30 @@ if page == "📊 Dashboard":
             
             # Check config for security enabled
             config = st.session_state.config_manager._config
-            security_enabled = config.get('senthium', {}).get('security', {}).get('enabled', False)
             
-            # Determine actual current state
-            if not is_daemon_running:
-                current_state = "IDLE"  # Daemon not running
-                status_message = "Daemon stopped - start for 24/7 monitoring"
-            elif not security_enabled:
-                current_state = "PAUSED"  # Security disabled
-                status_message = "Security disabled in config"
+            # Safety check for config being None
+            if not config or not isinstance(config, dict):
+                current_state = "IDLE"
+                status_message = "Configuration not loaded"
             else:
-                # Get state from security manager (only if enabled)
-                stats = st.session_state.security_manager.get_stats()
-                current_state = stats.get('current_state', 'MONITORING')
-                status_message = "Actively monitoring for threats"
+                security_enabled = config.get('senthium', {}).get('security', {}).get('enabled', False)
+                
+                # Determine actual current state
+                if not is_daemon_running:
+                    current_state = "IDLE"  # Daemon not running
+                    status_message = "Daemon stopped - start for 24/7 monitoring"
+                elif not security_enabled:
+                    current_state = "PAUSED"  # Security disabled
+                    status_message = "Security disabled in config"
+                else:
+                    # Get state from security manager (only if enabled)
+                    stats = st.session_state.security_manager.get_stats()
+                    if stats and isinstance(stats, dict):
+                        current_state = stats.get('current_state', 'MONITORING')
+                        status_message = "Actively monitoring for threats"
+                    else:
+                        current_state = "MONITORING"
+                        status_message = "Initializing security system..."
             
             # State badge with emoji and color
             state_emojis = {
@@ -476,6 +502,12 @@ if page == "📊 Dashboard":
         stats = st.session_state.security_manager.get_stats()
         recognizer_stats = st.session_state.security_manager.recognizer.get_stats()
         
+        # Safety check for None
+        if not stats or not isinstance(stats, dict):
+            stats = {'total_checks': 0, 'threats_detected': 0}
+        if not recognizer_stats or not isinstance(recognizer_stats, dict):
+            recognizer_stats = {'total_faces': 0}
+        
         with col1:
             uptime_seconds = int(time.time() - st.session_state.get('start_time', time.time()))
             uptime_str = f"{uptime_seconds // 3600}h {(uptime_seconds % 3600) // 60}m"
@@ -732,6 +764,290 @@ elif page == "📈 System Monitor":
     except Exception as e:
         st.error(f"❌ Error loading system metrics: {e}")
         st.exception(e)
+
+# ==================== AI TRAINING PAGE ====================
+elif page == "🎓 AI Training":
+    st.title("🎓 AI Training - Dynamic Face Learning")
+    st.markdown("**Train the AI model with 1-minute video capture for optimal recognition accuracy**")
+    
+    st.info("""
+    ### 🧠 How AI Training Works:
+    
+    **This is the "training phase" where the AI learns your face:**
+    
+    1. **📹 Video Capture**: Record a 1-minute video while moving your head
+    2. **🔍 Face Detection**: AI detects your face in every frame (600-1000 frames)
+    3. **🎯 Multi-Angle Learning**: Captures different angles, lighting, expressions
+    4. **🧮 Embedding Generation**: FaceNet CNN generates 128-dimensional vectors
+    5. **📊 Fine-Tuning**: AI averages best encodings for robust recognition
+    6. **💾 Model Update**: Your personalized face model is saved
+    
+    **Why 1 minute?** More data = better accuracy! The AI learns to recognize you across:
+    - Different head angles (left, right, up, down)
+    - Various lighting conditions
+    - Multiple facial expressions
+    - Temporal face variations
+    """)
+    
+    st.markdown("---")
+    
+    # Training configuration
+    st.subheader("🎯 Training Configuration")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        user_name = st.text_input(
+            "👤 Your Name",
+            placeholder="e.g., John Doe",
+            help="Enter the name for this training session"
+        )
+        
+        training_duration = st.selectbox(
+            "⏱️ Training Duration",
+            options=[30, 60, 90, 120],
+            index=1,
+            format_func=lambda x: f"{x} seconds ({x//60}m {x%60}s)" if x >= 60 else f"{x} seconds",
+            help="Longer duration = more training data"
+        )
+    
+    with col2:
+        fps_target = st.slider(
+            "📷 Capture Rate (FPS)",
+            min_value=5,
+            max_value=15,
+            value=10,
+            help="Frames per second to capture (10 FPS = 600 frames in 60s)"
+        )
+        
+        st.metric(
+            "Expected Frames",
+            f"~{training_duration * fps_target} frames",
+            help="Total training samples to collect"
+        )
+    
+    st.markdown("---")
+    
+    # Training instructions
+    st.subheader("📋 Training Instructions")
+    
+    st.success("""
+    **During the 1-minute training:**
+    
+    ✅ **DO:**
+    - Look directly at the camera initially
+    - Slowly turn your head left and right
+    - Tilt your head up and down
+    - Make natural facial expressions
+    - Stay within camera frame
+    - Ensure good lighting
+    
+    ❌ **DON'T:**
+    - Move too fast (AI needs clear frames)
+    - Block your face with hands
+    - Wear sunglasses/masks
+    - Leave the camera view
+    """)
+    
+    # Training button
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if not user_name:
+        st.warning("⚠️ Please enter your name to start training")
+    else:
+        col_start, col_stop = st.columns([1, 3])
+        
+        with col_start:
+            start_training = st.button(
+                "🚀 Start AI Training",
+                type="primary",
+                use_container_width=True,
+                help=f"Begin {training_duration}s training session",
+                disabled=not user_name
+            )
+        
+        if start_training:
+            # Initialize training session
+            st.session_state['training_active'] = True
+            st.session_state['training_user'] = user_name
+            st.session_state['training_duration'] = training_duration
+            st.session_state['training_fps'] = fps_target
+            st.rerun()
+    
+    # Training execution
+    if st.session_state.get('training_active', False):
+        st.markdown("---")
+        st.subheader("🎬 Live Training Session")
+        
+        # Training progress area
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        # Video preview
+        video_placeholder = st.empty()
+        
+        # Metrics
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        
+        with col_m1:
+            frames_captured_metric = st.empty()
+        with col_m2:
+            faces_detected_metric = st.empty()
+        with col_m3:
+            quality_metric = st.empty()
+        with col_m4:
+            time_remaining_metric = st.empty()
+        
+        # Stop button
+        stop_btn = st.button("⏹️ Stop Training", type="secondary")
+        
+        if stop_btn:
+            st.session_state['training_active'] = False
+            st.warning("Training cancelled by user")
+            st.rerun()
+        
+        try:
+            # Import trainer
+            from src.ai.trainer import FaceTrainer
+            
+            trainer = FaceTrainer(
+                user_name=st.session_state['training_user'],
+                output_dir="data/training"
+            )
+            
+            # Progress callback
+            def update_progress(progress_pct, frame, face_locations):
+                """Update UI during training"""
+                # Update progress bar
+                progress_bar.progress(int(progress_pct))
+                
+                # Update status
+                status_text.markdown(f"### 📹 Training in progress... {progress_pct:.1f}%")
+                
+                # Draw face boxes on frame
+                if len(face_locations) > 0:
+                    for (top, right, bottom, left) in face_locations:
+                        cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 3)
+                        cv2.putText(frame, "TRAINING", (left, top - 10),
+                                  cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                
+                # Show frame
+                video_placeholder.image(frame, channels="BGR", use_container_width=True)
+                
+                # Update metrics
+                frames_captured_metric.metric("📸 Frames Captured", len(trainer.frames))
+                faces_detected_metric.metric("👤 Faces Detected", len(trainer.face_encodings))
+                
+                if trainer.quality_scores:
+                    avg_quality = np.mean(trainer.quality_scores)
+                    quality_metric.metric("⭐ Avg Quality", f"{avg_quality:.3f}")
+                
+                remaining = st.session_state['training_duration'] - (progress_pct / 100 * st.session_state['training_duration'])
+                time_remaining_metric.metric("⏱️ Time Left", f"{int(remaining)}s")
+            
+            # Run training
+            with st.spinner("Initializing camera..."):
+                stats = trainer.capture_training_video(
+                    duration_seconds=st.session_state['training_duration'],
+                    fps_target=st.session_state['training_fps'],
+                    on_progress=update_progress
+                )
+            
+            # Training complete!
+            if stats['success']:
+                status_text.success("✅ Training Complete!")
+                progress_bar.progress(100)
+                
+                st.balloons()
+                
+                # Generate final encoding
+                with st.spinner("🧠 Fine-tuning AI model..."):
+                    final_encoding = trainer.generate_averaged_encoding(top_n=50)
+                    encoding_file = trainer.save_training_data(final_encoding, save_frames=True)
+                    report = trainer.get_training_report(stats, final_encoding)
+                
+                # Show training report
+                st.markdown("---")
+                st.subheader("📊 Training Report")
+                
+                col_r1, col_r2, col_r3 = st.columns(3)
+                
+                with col_r1:
+                    st.metric("Total Frames Processed", stats['total_frames'])
+                    st.metric("Valid Face Frames", stats['valid_frames'])
+                
+                with col_r2:
+                    st.metric("Capture Success Rate", f"{stats['capture_rate']:.1f}%")
+                    st.metric("Average Quality", f"{stats['avg_quality']:.3f}")
+                
+                with col_r3:
+                    st.metric("Actual Duration", f"{stats['duration']:.1f}s")
+                    st.metric("Effective FPS", f"{stats['fps']:.1f}")
+                
+                # Quality assessment
+                st.markdown("### 🎯 Training Quality Assessment")
+                
+                quality_msg = report['quality_assessment']
+                
+                if "EXCELLENT" in quality_msg:
+                    st.success(quality_msg)
+                elif "GOOD" in quality_msg:
+                    st.success(quality_msg)
+                elif "FAIR" in quality_msg:
+                    st.warning(quality_msg)
+                else:
+                    st.error(quality_msg)
+                
+                # Save to face database
+                st.markdown("### 💾 Save to Face Database")
+                
+                if st.button("✅ Save Trained Model", type="primary"):
+                    try:
+                        # Load existing face database
+                        face_db_path = Path("data/faces/encodings.json")
+                        face_db_path.parent.mkdir(parents=True, exist_ok=True)
+                        
+                        if face_db_path.exists():
+                            with open(face_db_path, 'r') as f:
+                                face_db = json.load(f)
+                        else:
+                            face_db = {}
+                        
+                        # Add new trained face
+                        face_db[user_name] = {
+                            'name': user_name,
+                            'encoding': final_encoding.tolist(),
+                            'enrolled_at': datetime.now().isoformat(),
+                            'training_method': 'AI_VIDEO_TRAINING',
+                            'training_duration': training_duration,
+                            'num_frames': stats['valid_frames'],
+                            'quality_score': stats['avg_quality']
+                        }
+                        
+                        # Save database
+                        with open(face_db_path, 'w') as f:
+                            json.dump(face_db, f, indent=2)
+                        
+                        st.success(f"✅ {user_name}'s trained model saved to database!")
+                        st.info(f"📁 Encoding file: {encoding_file}")
+                        
+                        # Reset training state
+                        st.session_state['training_active'] = False
+                        time.sleep(2)
+                        st.rerun()
+                        
+                    except Exception as e:
+                        st.error(f"❌ Failed to save: {e}")
+                
+            else:
+                st.error(f"❌ Training Failed: {stats.get('error', 'Unknown error')}")
+                st.session_state['training_active'] = False
+        
+        except Exception as e:
+            st.error(f"💥 Training Error: {e}")
+            import traceback
+            st.code(traceback.format_exc())
+            st.session_state['training_active'] = False
 
 # ==================== FACE ENROLLMENT PAGE ====================
 elif page == "👤 Face Enrollment":
@@ -1067,6 +1383,10 @@ elif page == "🔍 Security Check":
         try:
             stats = st.session_state.security_manager.get_stats()
             
+            # Safety check for None
+            if not stats or not isinstance(stats, dict):
+                stats = {'total_checks': 0, 'threats_detected': 0, 'last_check_time': 'Never'}
+            
             st.metric("Total Checks Performed", stats.get('total_checks', 0))
             st.metric("Threats Detected", stats.get('threats_detected', 0), 
                      delta=f"{stats.get('threats_detected', 0)} threats")
@@ -1074,6 +1394,246 @@ elif page == "🔍 Security Check":
         
         except Exception as e:
             st.error(f"Error loading stats: {e}")
+    
+    # ==================== SNAPSHOT ENCRYPTION GALLERY ====================
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("---")
+    st.header("🔐 Snapshot Encryption Gallery")
+    st.markdown("*Manage and secure your captured surveillance snapshots*")
+    
+    # Get snapshots directory
+    snapshots_dir = Path("data/snapshots")
+    
+    if not snapshots_dir.exists():
+        st.info("📁 No snapshots directory found. Run security checks to capture snapshots first.")
+    else:
+        # Get all snapshot files
+        all_snapshots = list(snapshots_dir.glob("*.jpg")) + list(snapshots_dir.glob("*.png"))
+        encrypted_snapshots = list(snapshots_dir.glob("*.enc"))
+        
+        # Stats overview
+        st.subheader("📊 Snapshot Overview")
+        
+        stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
+        
+        with stat_col1:
+            st.metric("📷 Total Snapshots", len(all_snapshots) + len(encrypted_snapshots))
+        
+        with stat_col2:
+            st.metric("🔓 Plaintext", len(all_snapshots), 
+                     delta="Unencrypted" if len(all_snapshots) > 0 else "Safe",
+                     delta_color="inverse")
+        
+        with stat_col3:
+            st.metric("🔐 Encrypted", len(encrypted_snapshots),
+                     delta="Protected" if len(encrypted_snapshots) > 0 else "None",
+                     delta_color="normal")
+        
+        with stat_col4:
+            encryption_pct = (len(encrypted_snapshots) / (len(all_snapshots) + len(encrypted_snapshots)) * 100) if (len(all_snapshots) + len(encrypted_snapshots)) > 0 else 0
+            st.metric("🔒 Encryption %", f"{encryption_pct:.0f}%")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Bulk Operations
+        st.subheader("⚡ Bulk Operations")
+        
+        bulk_col1, bulk_col2, bulk_col3 = st.columns(3)
+        
+        with bulk_col1:
+            if st.button("🔐 Encrypt All Plaintext", 
+                        disabled=len(all_snapshots) == 0,
+                        help="Encrypt all unencrypted snapshots",
+                        use_container_width=True):
+                with st.spinner(f"Encrypting {len(all_snapshots)} snapshots..."):
+                    try:
+                        from src.utils.snapshot_encryption import SnapshotEncryption
+                        encryptor = SnapshotEncryption()
+                        encrypted_count = 0
+                        
+                        for snapshot in all_snapshots:
+                            try:
+                                result = encryptor.encrypt_file(str(snapshot))
+                                if result:
+                                    # Delete original after successful encryption
+                                    snapshot.unlink()
+                                    encrypted_count += 1
+                            except Exception as e:
+                                st.error(f"Failed to encrypt {snapshot.name}: {e}")
+                        
+                        st.success(f"✅ Encrypted {encrypted_count} snapshots!")
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Bulk encryption error: {e}")
+        
+        with bulk_col2:
+            if st.button("🔓 Decrypt All Encrypted",
+                        disabled=len(encrypted_snapshots) == 0,
+                        help="Decrypt all encrypted snapshots",
+                        use_container_width=True):
+                with st.spinner(f"Decrypting {len(encrypted_snapshots)} snapshots..."):
+                    try:
+                        from src.utils.snapshot_encryption import SnapshotEncryption
+                        encryptor = SnapshotEncryption()
+                        decrypted_count = 0
+                        
+                        for snapshot in encrypted_snapshots:
+                            try:
+                                result = encryptor.decrypt_file(str(snapshot))
+                                if result:
+                                    # Delete encrypted file after successful decryption
+                                    snapshot.unlink()
+                                    decrypted_count += 1
+                            except Exception as e:
+                                st.error(f"Failed to decrypt {snapshot.name}: {e}")
+                        
+                        st.success(f"✅ Decrypted {decrypted_count} snapshots!")
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Bulk decryption error: {e}")
+        
+        with bulk_col3:
+            if st.button("🗑️ Delete All Originals",
+                        disabled=len(all_snapshots) == 0,
+                        help="Delete plaintext snapshots (keep encrypted only)",
+                        use_container_width=True,
+                        type="secondary"):
+                if st.checkbox("⚠️ Confirm deletion", key="confirm_delete_originals"):
+                    with st.spinner(f"Deleting {len(all_snapshots)} plaintext files..."):
+                        try:
+                            deleted_count = 0
+                            for snapshot in all_snapshots:
+                                try:
+                                    snapshot.unlink()
+                                    deleted_count += 1
+                                except Exception as e:
+                                    st.error(f"Failed to delete {snapshot.name}: {e}")
+                            
+                            st.success(f"✅ Deleted {deleted_count} plaintext snapshots!")
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Bulk deletion error: {e}")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Gallery View
+        st.subheader("🖼️ Snapshot Gallery")
+        
+        # Filter options
+        filter_col1, filter_col2 = st.columns([1, 3])
+        
+        with filter_col1:
+            view_filter = st.selectbox(
+                "Show:",
+                ["All Snapshots", "Plaintext Only", "Encrypted Only"],
+                help="Filter snapshots by encryption status"
+            )
+        
+        with filter_col2:
+            sort_by = st.selectbox(
+                "Sort By:",
+                ["Newest First", "Oldest First", "Name (A-Z)", "Name (Z-A)"],
+                help="Sort order for gallery"
+            )
+        
+        # Apply filters
+        if view_filter == "Plaintext Only":
+            display_snapshots = all_snapshots
+        elif view_filter == "Encrypted Only":
+            display_snapshots = encrypted_snapshots
+        else:
+            display_snapshots = all_snapshots + encrypted_snapshots
+        
+        # Apply sorting
+        if sort_by == "Newest First":
+            display_snapshots = sorted(display_snapshots, key=lambda x: x.stat().st_mtime, reverse=True)
+        elif sort_by == "Oldest First":
+            display_snapshots = sorted(display_snapshots, key=lambda x: x.stat().st_mtime)
+        elif sort_by == "Name (A-Z)":
+            display_snapshots = sorted(display_snapshots, key=lambda x: x.name)
+        else:  # Name (Z-A)
+            display_snapshots = sorted(display_snapshots, key=lambda x: x.name, reverse=True)
+        
+        if not display_snapshots:
+            st.info(f"No snapshots found matching filter: {view_filter}")
+        else:
+            st.caption(f"Showing {len(display_snapshots)} snapshots")
+            
+            # Display in grid (4 columns)
+            cols_per_row = 4
+            
+            for i in range(0, len(display_snapshots), cols_per_row):
+                cols = st.columns(cols_per_row)
+                
+                for j, col in enumerate(cols):
+                    if i + j < len(display_snapshots):
+                        snapshot = display_snapshots[i + j]
+                        
+                        with col:
+                            is_encrypted = snapshot.suffix == ".enc"
+                            
+                            # Show thumbnail or placeholder
+                            if is_encrypted:
+                                st.markdown("### 🔐")
+                                st.caption(f"**{snapshot.name[:20]}...**" if len(snapshot.name) > 20 else f"**{snapshot.name}**")
+                                st.caption("🔒 Encrypted")
+                            else:
+                                try:
+                                    img = Image.open(snapshot)
+                                    st.image(img, use_container_width=True)
+                                    st.caption(f"**{snapshot.name[:20]}...**" if len(snapshot.name) > 20 else f"**{snapshot.name}**")
+                                except Exception as e:
+                                    st.error(f"Error: {e}")
+                            
+                            # File info
+                            file_size_kb = snapshot.stat().st_size / 1024
+                            mod_time = datetime.fromtimestamp(snapshot.stat().st_mtime)
+                            st.caption(f"📦 {file_size_kb:.1f} KB")
+                            st.caption(f"🕐 {mod_time.strftime('%Y-%m-%d %H:%M')}")
+                            
+                            # Actions
+                            action_col1, action_col2 = st.columns(2)
+                            
+                            with action_col1:
+                                if is_encrypted:
+                                    if st.button("🔓", key=f"decrypt_{snapshot.name}", help="Decrypt this file"):
+                                        try:
+                                            from src.utils.snapshot_encryption import SnapshotEncryption
+                                            encryptor = SnapshotEncryption()
+                                            result = encryptor.decrypt_file(str(snapshot))
+                                            if result:
+                                                snapshot.unlink()  # Delete encrypted file
+                                                st.success("✅ Decrypted!")
+                                                time.sleep(0.5)
+                                                st.rerun()
+                                        except Exception as e:
+                                            st.error(f"❌ {e}")
+                                else:
+                                    if st.button("🔐", key=f"encrypt_{snapshot.name}", help="Encrypt this file"):
+                                        try:
+                                            from src.utils.snapshot_encryption import SnapshotEncryption
+                                            encryptor = SnapshotEncryption()
+                                            result = encryptor.encrypt_file(str(snapshot))
+                                            if result:
+                                                snapshot.unlink()  # Delete original file
+                                                st.success("✅ Encrypted!")
+                                                time.sleep(0.5)
+                                                st.rerun()
+                                        except Exception as e:
+                                            st.error(f"❌ {e}")
+                            
+                            with action_col2:
+                                if st.button("🗑️", key=f"delete_{snapshot.name}", help="Delete this file"):
+                                    try:
+                                        snapshot.unlink()
+                                        st.success("✅ Deleted!")
+                                        time.sleep(0.5)
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"❌ {e}")
 
 # ==================== FORENSICS TIMELINE PAGE ====================
 elif page == "📈 Forensics Timeline":
@@ -1480,6 +2040,318 @@ elif page == "🔍 Intruder Patterns":
                 import traceback
                 st.code(traceback.format_exc(), language="python")
 
+# ==================== HAUNTING MODE PAGE ====================
+elif page == "👻 Haunting Mode":
+    st.title("👻 Haunting Mode - Spooky Intruder Deterrence")
+    st.markdown("*Escalate from warnings to full paranormal psychological warfare* 💀")
+    
+    # Load config
+    config = st.session_state.config_manager._config
+    haunting_config = config.get('senthium', {}).get('haunting_mode', {})
+    
+    # Main Enable/Disable Toggle
+    st.subheader("🔮 Haunting Mode Control")
+    
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        st.markdown("""
+        **What is Haunting Mode?**
+        
+        When an intruder is detected, Senthium can escalate from silent monitoring to active deterrence:
+        
+        - 🔇 **Level 0**: Silent monitoring only (default)
+        - 🔔 **Level 1**: System notifications + email alerts
+        - 🗣️ **Level 2**: Text-to-Speech whispers ("I can see you...")
+        - 👁️ **Level 3**: Screen glitches + cryptic messages
+        - 💀 **Level 4**: Full haunting (lock screen, sirens, all effects)
+        
+        *Use responsibly. May cause psychological distress to intruders.* 😈
+        """)
+    
+    with col2:
+        # Status indicator
+        haunting_enabled = haunting_config.get('enabled', False)
+        if haunting_enabled:
+            st.success("### 🟢 ACTIVE")
+            st.caption("Haunting armed")
+        else:
+            st.warning("### 🔴 DISABLED")
+            st.caption("No spooky stuff")
+    
+    st.markdown("---")
+    
+    # Enable/Disable Toggle
+    enable_haunting = st.toggle(
+        "🔮 Enable Haunting Mode",
+        value=haunting_enabled,
+        help="Turn on paranormal deterrence features"
+    )
+    
+    if enable_haunting != haunting_enabled:
+        if 'senthium' not in config:
+            config['senthium'] = {}
+        if 'haunting_mode' not in config['senthium']:
+            config['senthium']['haunting_mode'] = {}
+        
+        config['senthium']['haunting_mode']['enabled'] = enable_haunting
+        st.session_state.config_manager._config = config
+        st.session_state.config_manager.save_config()
+        st.success(f"✅ Haunting Mode {'enabled' if enable_haunting else 'disabled'}!")
+        st.rerun()
+    
+    # Configuration (only show if enabled)
+    if enable_haunting:
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Escalation Settings
+        st.subheader("⚡ Escalation Settings")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            escalation_delay = st.slider(
+                "🕐 Escalation Delay (seconds)",
+                min_value=5,
+                max_value=120,
+                value=haunting_config.get('escalation_delay_seconds', 30),
+                step=5,
+                help="How long to wait before escalating to next level"
+            )
+            
+            max_level = st.select_slider(
+                "🔥 Maximum Escalation Level",
+                options=[0, 1, 2, 3, 4],
+                value=haunting_config.get('max_escalation_level', 2),
+                help="Highest level of haunting to reach"
+            )
+        
+        with col2:
+            repeat_whispers = st.checkbox(
+                "🔁 Repeat TTS Whispers",
+                value=haunting_config.get('repeat_whispers', True),
+                help="Keep whispering at intruder periodically"
+            )
+            
+            whisper_interval = st.slider(
+                "⏱️ Whisper Interval (seconds)",
+                min_value=10,
+                max_value=300,
+                value=haunting_config.get('whisper_interval_seconds', 60),
+                step=10,
+                help="Time between repeated whispers",
+                disabled=not repeat_whispers
+            )
+        
+        st.markdown("---")
+        
+        # TTS Configuration
+        st.subheader("🗣️ Text-to-Speech Settings")
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            # Try to get available voices
+            try:
+                import pyttsx3
+                engine = pyttsx3.init()
+                voices = engine.getProperty('voices')
+                voice_names = [f"{i}: {v.name}" for i, v in enumerate(voices)]
+                
+                selected_voice_idx = st.selectbox(
+                    "🎙️ TTS Voice",
+                    options=range(len(voices)),
+                    format_func=lambda i: voice_names[i],
+                    index=haunting_config.get('tts_voice_index', 0),
+                    help="Choose a creepy voice"
+                )
+                
+                # Test voice button
+                if st.button("🔊 Test Voice", help="Hear the selected voice"):
+                    with st.spinner("Speaking..."):
+                        try:
+                            engine.setProperty('voice', voices[selected_voice_idx].id)
+                            engine.setProperty('rate', haunting_config.get('tts_rate', 150))
+                            engine.say("I am watching you... I can see everything you do...")
+                            engine.runAndWait()
+                            st.success("✅ Voice test complete!")
+                        except Exception as e:
+                            st.error(f"❌ TTS Error: {e}")
+                
+            except Exception as e:
+                st.warning(f"⚠️ TTS not available: {e}")
+                st.info("Install pyttsx3: `pip install pyttsx3`")
+                selected_voice_idx = 0
+        
+        with col2:
+            tts_rate = st.slider(
+                "⚡ Speech Rate",
+                min_value=50,
+                max_value=300,
+                value=haunting_config.get('tts_rate', 150),
+                step=10,
+                help="Words per minute (lower = creepier)"
+            )
+            
+            tts_volume = st.slider(
+                "🔊 Volume",
+                min_value=0.0,
+                max_value=1.0,
+                value=haunting_config.get('tts_volume', 0.8),
+                step=0.1,
+                help="TTS volume level"
+            )
+        
+        st.markdown("---")
+        
+        # Whisper Messages
+        st.subheader("💬 Whisper Messages")
+        st.markdown("*Messages that will be randomly selected and spoken to intruders*")
+        
+        default_whispers = [
+            "I can see you...",
+            "You shouldn't be here...",
+            "I'm watching your every move...",
+            "This system is protected...",
+            "Your face has been recorded...",
+            "Security has been notified...",
+            "Why are you touching my things?",
+            "I know who you are...",
+            "Leave now while you still can...",
+            "The authorities are on their way..."
+        ]
+        
+        current_whispers = haunting_config.get('whisper_messages', default_whispers)
+        whisper_text = st.text_area(
+            "Whisper Lines (one per line)",
+            value="\n".join(current_whispers),
+            height=200,
+            help="Each line is a separate message that can be spoken"
+        )
+        
+        st.markdown("---")
+        
+        # Screen Effects
+        st.subheader("👁️ Screen Effects (Level 3+)")
+        
+        effect_cols = st.columns(3)
+        
+        with effect_cols[0]:
+            glitch_screen = st.checkbox(
+                "⚡ Screen Glitches",
+                value=haunting_config.get('glitch_screen', True),
+                help="Distort screen with glitch effects"
+            )
+            
+            show_eyes = st.checkbox(
+                "👁️ Watching Eyes",
+                value=haunting_config.get('show_eyes', True),
+                help="Display creepy eye images"
+            )
+        
+        with effect_cols[1]:
+            cryptic_messages = st.checkbox(
+                "💀 Cryptic Messages",
+                value=haunting_config.get('cryptic_messages', True),
+                help="Show mysterious text overlays"
+            )
+            
+            invert_colors = st.checkbox(
+                "🌈 Invert Colors",
+                value=haunting_config.get('invert_colors', False),
+                help="Invert screen colors periodically"
+            )
+        
+        with effect_cols[2]:
+            shake_windows = st.checkbox(
+                "📳 Shake Windows",
+                value=haunting_config.get('shake_windows', False),
+                help="Make windows vibrate (Windows only)"
+            )
+            
+            play_sounds = st.checkbox(
+                "🔊 Spooky Sounds",
+                value=haunting_config.get('play_sounds', False),
+                help="Play eerie sound effects"
+            )
+        
+        st.markdown("---")
+        
+        # Level 4 Nuclear Options
+        st.subheader("💀 Level 4 - Maximum Deterrence")
+        st.warning("⚠️ **WARNING**: These are extreme measures. Use only if you want to traumatize intruders.")
+        
+        nuke_cols = st.columns(2)
+        
+        with nuke_cols[0]:
+            auto_lock = st.checkbox(
+                "🔒 Auto-Lock Workstation",
+                value=haunting_config.get('auto_lock', False),
+                help="Lock Windows immediately"
+            )
+            
+            trigger_siren = st.checkbox(
+                "🚨 Trigger Alarm Siren",
+                value=haunting_config.get('trigger_siren', False),
+                help="Play loud alarm sound"
+            )
+        
+        with nuke_cols[1]:
+            full_screen_takeover = st.checkbox(
+                "🖥️ Full-Screen Takeover",
+                value=haunting_config.get('full_screen_takeover', False),
+                help="Take over entire screen with warning"
+            )
+            
+            emergency_shutdown = st.checkbox(
+                "⚡ Emergency Shutdown",
+                value=haunting_config.get('emergency_shutdown', False),
+                help="Shutdown computer (EXTREME)"
+            )
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Save All Settings Button
+        if st.button("💾 Save Haunting Configuration", type="primary", use_container_width=True):
+            with st.spinner("Saving haunting settings..."):
+                # Update config
+                if 'senthium' not in config:
+                    config['senthium'] = {}
+                if 'haunting_mode' not in config['senthium']:
+                    config['senthium']['haunting_mode'] = {}
+                
+                config['senthium']['haunting_mode'].update({
+                    'enabled': enable_haunting,
+                    'escalation_delay_seconds': escalation_delay,
+                    'max_escalation_level': max_level,
+                    'repeat_whispers': repeat_whispers,
+                    'whisper_interval_seconds': whisper_interval,
+                    'tts_voice_index': selected_voice_idx,
+                    'tts_rate': tts_rate,
+                    'tts_volume': tts_volume,
+                    'whisper_messages': [line.strip() for line in whisper_text.split('\n') if line.strip()],
+                    'glitch_screen': glitch_screen,
+                    'show_eyes': show_eyes,
+                    'cryptic_messages': cryptic_messages,
+                    'invert_colors': invert_colors,
+                    'shake_windows': shake_windows,
+                    'play_sounds': play_sounds,
+                    'auto_lock': auto_lock,
+                    'trigger_siren': trigger_siren,
+                    'full_screen_takeover': full_screen_takeover,
+                    'emergency_shutdown': emergency_shutdown
+                })
+                
+                st.session_state.config_manager._config = config
+                st.session_state.config_manager.save_config()
+                
+                st.success("✅ Haunting configuration saved successfully! 👻")
+                time.sleep(1)
+                st.rerun()
+    
+    else:
+        st.info("💡 Enable Haunting Mode to configure spooky deterrence features")
+
 # ==================== SETTINGS PAGE ====================
 elif page == "⚙️ Settings":
     st.title("⚙️ Settings & Configuration")
@@ -1495,6 +2367,11 @@ elif page == "⚙️ Settings":
     
     try:
         stats = st.session_state.security_manager.get_stats()
+        
+        # Safety check for None
+        if not stats or not isinstance(stats, dict):
+            stats = {'enabled': False}
+        
         is_enabled = stats.get('enabled', False)
         
         col1, col2 = st.columns([3, 1])

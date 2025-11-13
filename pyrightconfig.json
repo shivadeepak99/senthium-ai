@@ -27,6 +27,7 @@
     "reportDuplicateImport": true,
     "reportAttributeAccessIssue": false,
     "reportMissingModuleSource": "warning",
+    "reportGeneralTypeIssues": false,
     "venvPath": ".",
     "venv": "venv",
     "stubPath": "."
