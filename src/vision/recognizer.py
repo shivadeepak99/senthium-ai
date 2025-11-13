@@ -60,16 +60,37 @@ class FaceRecognizer:
                 data = json.load(f)
             
             # Convert lists back to numpy arrays
-            for name, encodings_list in data.items():
-                self.authorized_encodings[name] = [
-                    np.array(enc) for enc in encodings_list
-                ]
+            # Support both old format (list of encodings) and new format (dict with metadata)
+            for name, encodings_data in data.items():
+                if isinstance(encodings_data, list):
+                    # Old format: direct list of encodings
+                    # Check if it's a list of lists (multiple encodings) or single encoding
+                    if len(encodings_data) > 0 and isinstance(encodings_data[0], list):
+                        # Multiple encodings
+                        self.authorized_encodings[name] = [
+                            np.array(enc) for enc in encodings_data
+                        ]
+                    else:
+                        # Single encoding (flat list of 128 numbers)
+                        self.authorized_encodings[name] = [np.array(encodings_data)]
+                        
+                elif isinstance(encodings_data, dict):
+                    # New format: dict with 'encoding' key + metadata
+                    if 'encoding' in encodings_data:
+                        encoding = np.array(encodings_data['encoding'])
+                        self.authorized_encodings[name] = [encoding]
+                    else:
+                        logger.warning(f"⚠️ User '{name}' has dict format but no 'encoding' key!")
+                else:
+                    logger.warning(f"⚠️ Unknown format for user '{name}': {type(encodings_data)}")
             
             total_faces = sum(len(encs) for encs in self.authorized_encodings.values())
             logger.info(f"✅ Loaded {len(self.authorized_encodings)} authorized user(s) with {total_faces} face(s)")
             
         except Exception as e:
             logger.error(f"❌ Failed to load authorized faces: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
     
     def _save_authorized_faces(self):
         """Save authorized face encodings to disk."""

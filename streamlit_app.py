@@ -812,7 +812,7 @@ elif page == "🎓 AI Training":
     st.subheader("👥 Trained Users Database")
     
     try:
-        # Load authorized faces
+        # Load authorized faces from the CORRECT location
         faces_file = Path("config/faces/authorized.json")
         
         if faces_file.exists():
@@ -822,34 +822,67 @@ elif page == "🎓 AI Training":
             if face_db:
                 st.success(f"✅ **{len(face_db)}** user(s) trained in the system")
                 
-                # Display each user
-                cols = st.columns(min(4, len(face_db)))
-                for idx, (name, encodings) in enumerate(face_db.items()):
-                    with cols[idx % 4]:
-                        # Check if it's array format (list of encodings) or dict format
-                        if isinstance(encodings, list):
-                            # Old format: list of encodings
-                            num_encodings = len(encodings)
-                            training_method = "Unknown"
-                            training_date = "N/A"
-                        elif isinstance(encodings, dict):
-                            # New format with metadata
-                            num_encodings = encodings.get('num_frames', 1)
-                            training_method = encodings.get('training_method', 'Manual')
-                            training_date = encodings.get('trained_at', 'N/A')
-                        else:
-                            num_encodings = 1
-                            training_method = "Unknown"
-                            training_date = "N/A"
-                        
-                        st.info(f"""
-                        **👤 {name}**  
-                        📊 Samples: {num_encodings}  
-                        🎓 Method: {training_method}  
-                        📅 Date: {training_date}
-                        """)
+                # Display each user with delete button
+                cols_per_row = 3
+                user_list = list(face_db.items())
+                
+                for row_idx in range(0, len(user_list), cols_per_row):
+                    cols = st.columns(cols_per_row)
+                    
+                    for col_idx, (name, encodings) in enumerate(user_list[row_idx:row_idx + cols_per_row]):
+                        with cols[col_idx]:
+                            # Check if it's array format (list of encodings) or dict format
+                            if isinstance(encodings, list):
+                                # Old format: list of encodings
+                                num_encodings = len(encodings) if isinstance(encodings[0], list) else 1
+                                training_method = "Manual"
+                                training_date = "N/A"
+                            elif isinstance(encodings, dict):
+                                # New format with metadata
+                                num_encodings = encodings.get('num_frames', 1)
+                                training_method = encodings.get('training_method', 'Manual')
+                                training_date = encodings.get('enrolled_at', 'N/A')
+                                if 'T' in training_date:
+                                    training_date = training_date.split('T')[0]  # Just date
+                            else:
+                                num_encodings = 1
+                                training_method = "Unknown"
+                                training_date = "N/A"
+                            
+                            with st.container():
+                                st.markdown(f"""
+                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                     padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+                                    <h4 style="margin:0; color: white;">👤 {name}</h4>
+                                    <p style="margin:5px 0; color: rgba(255,255,255,0.9); font-size: 0.9em;">
+                                        📊 Samples: {num_encodings}<br>
+                                        🎓 Method: {training_method}<br>
+                                        📅 Date: {training_date}
+                                    </p>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
+                                # Delete button
+                                if st.button(f"🗑️ Delete {name}", key=f"delete_{name}", use_container_width=True, type="secondary"):
+                                    try:
+                                        # Remove from database
+                                        del face_db[name]
+                                        
+                                        # Save updated database
+                                        with open(faces_file, 'w') as f:
+                                            json.dump(face_db, f, indent=2)
+                                        
+                                        # Reload recognizer
+                                        st.session_state.security_manager.recognizer._load_authorized_faces()
+                                        
+                                        st.success(f"✅ Deleted {name} from database!")
+                                        time.sleep(1)
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"❌ Delete failed: {e}")
                 
                 # Check training data directory
+                st.markdown("<br>", unsafe_allow_html=True)
                 training_dir = Path("data/training")
                 if training_dir.exists():
                     training_sessions = list(training_dir.glob("*/"))
@@ -1102,8 +1135,8 @@ elif page == "🎓 AI Training":
                 
                 if st.button("✅ Save Trained Model", type="primary"):
                     try:
-                        # Load existing face database
-                        face_db_path = Path("data/faces/encodings.json")
+                        # Use the SAME file as SecurityManager!
+                        face_db_path = Path("config/faces/authorized.json")
                         face_db_path.parent.mkdir(parents=True, exist_ok=True)
                         
                         if face_db_path.exists():
@@ -1112,9 +1145,8 @@ elif page == "🎓 AI Training":
                         else:
                             face_db = {}
                         
-                        # Add new trained face
+                        # Add new trained face (store as dict with metadata)
                         face_db[user_name] = {
-                            'name': user_name,
                             'encoding': final_encoding.tolist(),
                             'enrolled_at': datetime.now().isoformat(),
                             'training_method': 'AI_VIDEO_TRAINING',
@@ -1128,7 +1160,13 @@ elif page == "🎓 AI Training":
                             json.dump(face_db, f, indent=2)
                         
                         st.success(f"✅ {user_name}'s trained model saved to database!")
-                        st.info(f"📁 Encoding file: {encoding_file}")
+                        st.info(f"📁 Saved to: {face_db_path}")
+                        st.info(f"🧠 Encoding file: {encoding_file}")
+                        
+                        # Force recognizer to reload faces
+                        with st.spinner("🔄 Reloading face database..."):
+                            st.session_state.security_manager.recognizer._load_authorized_faces()
+                            st.success("✅ Face database reloaded! Recognition system updated.")
                         
                         # Reset training state
                         st.session_state['training_active'] = False
@@ -1137,6 +1175,8 @@ elif page == "🎓 AI Training":
                         
                     except Exception as e:
                         st.error(f"❌ Failed to save: {e}")
+                        import traceback
+                        st.code(traceback.format_exc())
                 
             else:
                 st.error(f"❌ Training Failed: {stats.get('error', 'Unknown error')}")
