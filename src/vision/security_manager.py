@@ -112,6 +112,13 @@ class SecurityManager:
         # ⏱️ Grace period & lock delay
         self.grace_period = self.config.get('grace_period_seconds', 30)
         self.lock_delay = self.config.get('unauthorized_lock_delay_seconds', 3)
+        
+        # 🔥 DEBUG: Log the loaded values with their types
+        logger.debug(f"🔍 CONFIG DEBUG:")
+        logger.debug(f"   grace_period: {self.grace_period} (type: {type(self.grace_period).__name__})")
+        logger.debug(f"   lock_delay: {self.lock_delay} (type: {type(self.lock_delay).__name__})")
+        logger.debug(f"   Raw config keys: {list(self.config.keys())}")
+        
         self.notify_on_state_change_only = self.config.get('notify_on_state_change_only', True)
         
         # State tracking for grace period
