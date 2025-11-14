@@ -68,5 +68,33 @@
       "logs\\security\\snapshots\\intruder_20251114_101329.jpg"
     ],
     "threat_level": "LOW"
+  },
+  "intruder_6_20251114": {
+    "pattern_id": "intruder_6_20251114",
+    "first_seen": "2025-11-14T10:18:27.139642",
+    "last_seen": "2025-11-14T10:18:27.139642",
+    "count": 2,
+    "timestamps": [
+      "2025-11-14T10:18:27.139642",
+      "2025-11-14T10:18:27.139642"
+    ],
+    "snapshot_paths": [
+      "logs\\security\\snapshots\\intruder_20251114_101827.jpg"
+    ],
+    "threat_level": "LOW"
+  },
+  "intruder_7_20251114": {
+    "pattern_id": "intruder_7_20251114",
+    "first_seen": "2025-11-14T10:39:27.814408",
+    "last_seen": "2025-11-14T10:39:27.814408",
+    "count": 2,
+    "timestamps": [
+      "2025-11-14T10:39:27.814408",
+      "2025-11-14T10:39:27.814408"
+    ],
+    "snapshot_paths": [
+      "logs\\security\\snapshots\\intruder_20251114_103928.jpg"
+    ],
+    "threat_level": "LOW"
   }
 }
