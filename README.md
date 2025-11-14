@@ -1,16 +1,19 @@
-# 🔒 Senthium AI Security System
+# 🔒 Senthium AI
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)
-![Python](https://img.shields.io/badge/python-3.11+-green.svg)
-![OpenCV](https://img.shields.io/badge/OpenCV-4.8+-green.svg)
-![DeepFace](https://img.shields.io/badge/DeepFace-0.0.79+-purple.svg)
-![License](https://img.shields.io/badge/license-MIT-purple.svg)
+[![PyPI version](https://img.shields.io/badge/pypi-v1.0.0-blue.svg)](https://pypi.org/project/senthium-ai/)
+[![Python](https://img.shields.io/badge/python-3.11+-green.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
+[![GitHub](https://img.shields.io/badge/github-shivadeepak99%2Fsenthium--ai-black.svg)](https://github.com/shivadeepak99/senthium-ai)
 
-**AI-powered face recognition security for your PC. Protect your system when you're away.**
+**Privacy-First Face Recognition Security System**
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Screenshots](#-screenshots) • [Usage](#-usage) • [Configuration](#%EF%B8%8F-configuration)
+*Monitor your computer during long-running tasks. Get alerted if someone else sits at your desk.*
+
+**🔐 100% Local • 🚫 No Cloud • 💜 Open Source**
+
+[Quick Install](#-installation) • [Features](#-features) • [Usage](#-usage) • [Privacy](#-privacy-commitment)
 
 </div>
 
@@ -18,87 +21,60 @@
 
 ## 🎯 The Problem
 
-You need to leave your PC running (downloads, renders, backups), but you can't shut it down. Now you're stuck with:
+You're rendering a video (3 hours), training a model (8 hours), or downloading a large file (overnight).
 
-- 🔓 **Leaving your PC unlocked** (anyone can access it!)
-- 😴 **System sleep** (interrupts your tasks)
-- ⚠️ **Unauthorized access** (no way to know if someone used it)
+**The Dilemma:**
+- 🔓 Leave PC unlocked → Anyone can access your work
+- 🔒 Lock the screen → Task pauses/fails
+- 😴 Let it sleep → Download interrupted
 
-**Senthium AI Security solves this.**
+**Senthium AI solves this:**
+- ✅ Task keeps running (screen stays unlocked)
+- ✅ You get INSTANT alerts if someone else sits at your desk
+- ✅ Camera snapshots capture who accessed your PC
+- ✅ Auto-lock (optional) after unauthorized detection
 
 ---
 
 ## ✨ Features
 
-### � **AI-Powered Security**
-- **Face Detection**: OpenCV DNN - fast, accurate, no dlib dependency
-- **Face Recognition**: DeepFace with Facenet/ArcFace models
-- **Multi-face Detection**: Detect multiple people simultaneously
-- **Real-time Monitoring**: Continuous background surveillance
+### 🧠 AI-Powered Security
+- **Deep Learning Face Recognition** (FaceNet CNN)
+- **Real-time Detection** (OpenCV DNN)
+- **Multi-face Support** (detect multiple people)
+- **Dynamic Training** (1-minute video enrollment)
 
-### 📢 **Smart Alerts**
-- **💜 Discord**: Instant webhook notifications with snapshots
-- **✉️ Email**: SMTP alerts (Gmail, Outlook, Yahoo, custom)
-- **💬 Telegram**: Bot notifications
-- **🖥️ Windows Toast**: Desktop notifications
-- **📝 Alert History**: Complete log with timestamps and photos
+### 📢 Smart Alerts
+- **Discord Webhooks** (instant notifications)
+- **Email** (SMTP - Gmail, Outlook, etc.)
+- **Desktop Notifications** (Windows/Mac/Linux)
+- **Snapshots** (photo evidence of intruders)
 
-### 🎨 **Beautiful Web Dashboard**
-- **Streamlit Interface**: Modern, responsive web UI
-- **Face Enrollment**: Drag-and-drop photo upload
-- **Manual Check**: One-click security scan
-- **Settings Page**: Configure all options from GUI (Discord webhook, SMTP, etc.)
-- **Live Stats**: Real-time monitoring dashboard
+### 🎨 Modern Web UI
+- **Streamlit Dashboard** (beautiful, responsive)
+- **Face Enrollment** (webcam or photo upload)
+- **Live Monitoring** (real-time status)
+- **Complete Settings** (no YAML editing needed)
 
-### 🤖 **Background Daemon**
-- **24/7 Monitoring**: Runs silently in background
-- **Auto-start**: Launch on system boot (Windows service)
-- **Low Overhead**: Minimal CPU/RAM usage
-- **Configurable**: Adjust check interval, tolerance, cooldown
-- **Service Commands**: `senthium service install/start/stop/status`
+### 🤖 Background Daemon
+- **24/7 Monitoring** (runs silently)
+- **Low Resource** (< 50MB RAM, < 1% CPU)
+- **Auto-start** (launch on boot)
+- **Failsafe Timer** (prevents infinite lock)
 
-### 📊 **Activity Logging** *(NEW!)*
-- **Session Tracking**: Logs every stay-awake session with metrics
-- **Analytics Engine**: Daily/weekly summaries, top rules, trigger breakdowns
-- **JSONL Storage**: Efficient append-only logs
-- **CLI Reporting**: `senthium activity --days 7`
-
-### 🛡️ **Safe & Deterministic**
-- **Failsafe Timer**: Max awake duration prevents infinite lock
-- **State Machine**: Predictable behavior, no surprises
-- **Graceful Shutdown**: Handles signals cleanly
-
-### 🎮 **Flexible Control**
-- **Daemon Mode**: Background service with auto-detection
-- **Wrapper Mode**: Explicit `senthium run <command>` for guaranteed stay-awake
-- **CLI Management**: Start, stop, restart, status commands
-
-### ⚡ **Lightweight & Fast**
-- **< 50MB RAM**: Minimal resource footprint
-- **< 0.5% CPU**: Efficient polling (configurable intervals)
-- **Cross-platform**: Windows, Linux, macOS support
+### 🛡️ Privacy-First Design
+- **100% Local Processing** (no cloud uploads)
+- **Encrypted Snapshots** (optional)
+- **You Control the Data** (delete anytime)
+- **Open Source** (audit the code yourself)
 
 ---
 
-## 🚀 Quick Start
-
-### Installation
+## 📦 Installation
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/senthium.git
-cd senthium
-
-# Install with pip
-pip install -e .
-
-# Verify installation
-senthium --version
+pip install senthium-ai
 ```
-
-### Create Configuration
-
-```bash
 # Copy example config
 cp config/examples/minimal.yaml config/config.yaml
 
@@ -121,57 +97,135 @@ senthium --info
 
 # Stop daemon
 senthium stop
-```
-
-### Install as System Service *(NEW!)*
+That's it! Now launch the web interface:
 
 ```bash
-# Windows
-senthium service install
-senthium service start
-
-# Linux
-sudo senthium service install
-sudo systemctl start senthium
+senthium-gui
 ```
 
-### View Activity Logs *(NEW!)*
+Or start the background daemon:
 
 ```bash
-# Last 7 days of activity
-senthium activity --days 7
-
-# Today's activity
-senthium activity --days 1
+senthium-daemon
 ```
 
-### Launch Web Dashboard *(NEW!)*
+---
+
+## 🎯 Usage
+
+### 1. Launch Web Interface
 
 ```bash
-# Windows
-launch_dashboard.bat
-
-# Linux/macOS
-./launch_dashboard.sh
-
-# Then open http://localhost:3000
+senthium-gui
 ```
 
-### Wrapper Mode (Explicit)
+Browser opens automatically at `http://localhost:8501`
 
-```bash
-# Run command and guarantee stay-awake
-senthium run npm run build
+### 2. Enroll Your Face
 
-# Example: long compilation
-senthium run cargo build --release
+- Go to **"👤 Face Enrollment"** tab
+- Click **"Capture from Webcam"** (or upload photo)
+- Enter your name
+- Click **"Enroll Face"**
 
-# Example: video encoding
-senthium run ffmpeg -i input.mp4 output.mkv
-```
+### 3. Start Monitoring
 
-**That's it!** Senthium will:
-1. ✅ Monitor your configured processes/metrics
+- Go to **"🛡️ Security"** tab
+- Click **"Start Daemon"**
+- Leave your PC! You'll get alerts if someone else sits down.
+
+### 4. Configure Alerts (Optional)
+
+- Go to **"⚙️ Settings"** tab
+- Add Discord webhook URL
+- Configure email (SMTP)
+- Set auto-lock behavior
+
+---
+
+## 🔐 Privacy Commitment
+
+**Senthium AI is 100% local. No cloud. Ever.**
+
+✅ All face data stored on YOUR machine only  
+✅ No telemetry, no phone-home, no tracking  
+✅ You control when monitoring is active  
+✅ Open source - audit the code yourself  
+✅ Snapshots encrypted at rest (optional)  
+
+**Use Case:** Personal computer security during unattended tasks  
+**NOT for:** Surveillance, tracking others, workplace monitoring without consent
+
+**By design, Senthium runs on localhost only. Your privacy = our priority.**
+
+---
+
+## 📚 Documentation
+
+- **Full Guide:** See [CSE311_PROJECT_REPORT.md](CSE311_PROJECT_REPORT.md)
+- **PyPI Publishing:** See [PYPI_PUBLISH_GUIDE.md](PYPI_PUBLISH_GUIDE.md)
+- **Jupyter Demo:** See [Senthium_AI_Complete_Demo.ipynb](Senthium_AI_Complete_Demo.ipynb)
+
+---
+
+## 🛠️ Requirements
+
+- **Python:** 3.11 or higher
+- **Webcam:** Any USB/built-in camera
+- **OS:** Windows, macOS, or Linux
+- **RAM:** 4GB minimum (8GB recommended)
+- **Storage:** 2GB for models and dependencies
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! This is an open-source project.
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+Built for CSE 311 - Artificial Intelligence (2025)
+
+**Technologies:**
+- **DeepFace** (Face recognition)
+- **OpenCV** (Computer vision)
+- **TensorFlow** (Deep learning)
+- **Streamlit** (Web interface)
+
+**Pre-trained Model:**
+- FaceNet (trained on VGGFace2 dataset)
+
+---
+
+## 📧 Contact
+
+**Developer:** Shanigaram Shivadeepak  
+**Email:** shivadeepak.dev@gmail.com  
+**GitHub:** [@shivadeepak99](https://github.com/shivadeepak99)  
+**Repository:** [senthium-ai](https://github.com/shivadeepak99/senthium-ai)
+
+---
+
+<div align="center">
+
+**Made with 💜 for developers, creators, and privacy-conscious users**
+
+⭐ Star this repo if you find it useful!
+
+</div>
 2. ✅ Keep PC awake when rules match
 3. ✅ Let it sleep when idle
 4. ✅ Respect max awake duration (failsafe)

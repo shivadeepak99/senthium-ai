@@ -1,4 +1,4 @@
-# Python
+# ===== PYTHON =====
 __pycache__/
 *.py[cod]
 *$py.class
@@ -19,45 +19,99 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Virtual Environments
+# ===== VIRTUAL ENVIRONMENTS =====
 venv/
+venv311/
 ENV/
 env/
 .venv
 
-# IDEs
+# ===== IDEs & EDITORS =====
 .vscode/
 .idea/
+.vs/
 *.swp
 *.swo
 *~
+.prompt
+pyrightconfig.json
 
-# OS
+# ===== OS =====
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Testing
+# ===== TESTING =====
 .pytest_cache/
 .coverage
+.coveragerc
 htmlcov/
 .tox/
+pytest.ini
+*.coverage
 
-# Logs
-logs/*.log
+# ===== LOGS & DATA =====
+logs/
+logs_*/
 *.log
+data/faces/*
+!data/faces/.gitkeep
+snapshots/
+*.db
+*.sqlite
 
-# Config (user-specific)
+# ===== CONFIG (user-specific) =====
 config/config.yaml
 !config/config.example.yaml
+config/.snapshot_key
 
-# Distribution
+# ===== DISTRIBUTION =====
 *.whl
 *.tar.gz
+*.zip
 
-# Jupyter Notebooks
+# ===== JUPYTER NOTEBOOKS =====
 .ipynb_checkpoints
 
-# Environment variables
+# ===== ENVIRONMENT VARIABLES =====
 .env
 .env.local
+
+# ===== TEMPORARY & DEBUG FILES =====
+*.tmp
+*.temp
+*.bak
+*~
+.*.swp
+
+# ===== PROJECT-SPECIFIC =====
+# Backup markdown files (cleanup)
+*_BACKUP.md
+*_OLD.md
+*_FIX.md
+*_STATUS.md
+*_GUIDE.md
+*_CHECKLIST.md
+BRAINSTORM*.md
+COMPLETE*.md
+DEBUG*.md
+FEATURE*.md
+FRESH*.md
+INFO.MD
+LIVE*.md
+LOGGING*.md
+MANUAL*.md
+ROOT*.md
+SNAPSHOT*.md
+SYSTEM*.md
+TESTING*.md
+TODO*.md
+TOLERANCE*.md
+URGENT*.md
+
+# Batch/Script files (use Python instead)
+*.bat
+*.ps1
+!install.ps1

@@ -1,21 +1,51 @@
-# Include important files in the package
+# ===== INCLUDE ESSENTIAL FILES =====
 include README.md
 include LICENSE
+include PYPI_PUBLISH_GUIDE.md
+include CSE311_PROJECT_REPORT.md
 include requirements.txt
+
+# ===== INCLUDE CONFIG FILES =====
 include config/*.yaml
 include config/*.json
+recursive-include config *.example.yaml
 
-# Include model files
-recursive-include models *.prototxt *.caffemodel
+# ===== INCLUDE MODEL FILES =====
+recursive-include models *.prototxt
+recursive-include models *.caffemodel
+recursive-include models *.pb
+recursive-include models *.h5
 
-# Exclude unwanted files
+# ===== INCLUDE NOTEBOOKS =====
+include *.ipynb
+
+# ===== INCLUDE SOURCE CODE =====
+recursive-include src *.py
+
+# ===== EXCLUDE UNWANTED FILES =====
 global-exclude *.pyc
 global-exclude *.pyo
+global-exclude *.pyd
 global-exclude __pycache__
 global-exclude .DS_Store
+global-exclude Thumbs.db
 global-exclude *.log
+global-exclude *.swp
+global-exclude *.swo
+global-exclude *~
+global-exclude *.bak
+global-exclude *.tmp
 
-# Exclude test and temporary files
+# ===== EXCLUDE DIRECTORIES =====
 prune tests
 prune logs
+prune logs_*
 prune temp*
+prune .pytest_cache
+prune htmlcov
+prune .vscode
+prune .idea
+prune .vs
+prune venv*
+prune data/faces
+prune snapshots

@@ -562,10 +562,13 @@ View in HTML email client for rich formatting and photos.
                         img_data = img_file.read()
                         img = MIMEImage(img_data)
                         
-                        # Set filename for attachment
+                        # Set filename for attachment (ASCII-safe, no emojis in headers!)
                         snapshot_filename = Path(alert.snapshot_path).name
-                        img.add_header('Content-Disposition', 'attachment', filename=snapshot_filename)
-                        img.add_header('Content-ID', f'<{snapshot_filename}>')
+                        # Encode filename properly to avoid charmap errors
+                        from email.header import Header
+                        safe_filename = snapshot_filename.encode('ascii', 'ignore').decode('ascii')
+                        img.add_header('Content-Disposition', 'attachment', filename=safe_filename)
+                        img.add_header('Content-ID', f'<{safe_filename}>')
                         
                         msg.attach(img)
                         print(f"[DEBUG EMAIL] ✅ Original photo attached: {snapshot_filename}")
@@ -581,8 +584,10 @@ View in HTML email client for rich formatting and photos.
                             img = MIMEImage(img_data)
                             
                             annotated_filename = annotated_path.name
-                            img.add_header('Content-Disposition', 'attachment', filename=annotated_filename)
-                            img.add_header('Content-ID', f'<{annotated_filename}>')
+                            # Encode filename properly to avoid charmap errors
+                            safe_annotated_filename = annotated_filename.encode('ascii', 'ignore').decode('ascii')
+                            img.add_header('Content-Disposition', 'attachment', filename=safe_annotated_filename)
+                            img.add_header('Content-ID', f'<{safe_annotated_filename}>')
                             
                             msg.attach(img)
                             print(f"[DEBUG EMAIL] ✅ Annotated photo attached: {annotated_filename}")

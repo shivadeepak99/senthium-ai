@@ -644,6 +644,19 @@ if page == "📊 Dashboard":
                 with col:
                     st.image(str(snapshot), caption=f"Snapshot {idx + 1}")
                     st.caption(snapshot.name)
+            
+            # Expand to show ALL snapshots
+            if len(snapshots) > 3:
+                with st.expander(f"🔍 Show All {len(snapshots)} Snapshots"):
+                    # Show remaining snapshots in rows of 3
+                    remaining = snapshots[3:]
+                    for row_start in range(0, len(remaining), 3):
+                        row_snapshots = remaining[row_start:row_start + 3]
+                        row_cols = st.columns(3)
+                        for idx, (col, snapshot) in enumerate(zip(row_cols, row_snapshots)):
+                            with col:
+                                st.image(str(snapshot), caption=f"Snapshot {row_start + idx + 4}")
+                                st.caption(snapshot.name)
         else:
             st.info("No snapshots available yet.")
     else:
@@ -3077,6 +3090,385 @@ elif page == "⚙️ Settings":
             
             if st.session_state.config_manager.save(config):
                 st.success("✅ Pattern detection saved!")
+                st.info("💡 Restart daemon to apply changes")
+                st.rerun()
+            else:
+                st.error("❌ Failed to save configuration")
+    
+    st.markdown("---")
+    
+    # ===== COMPREHENSIVE ADVANCED SETTINGS =====
+    st.subheader("⚙️ Advanced Security Settings")
+    st.markdown("**🔥 FULL CONTROL over every aspect of your security system!**")
+    
+    # Create tabs for organized settings
+    adv_tab1, adv_tab2, adv_tab3, adv_tab4 = st.tabs([
+        "🚨 Alert Channels", 
+        "🎯 Detection & Recognition", 
+        "🔒 Action Behaviors",
+        "📊 Monitoring & Logging"
+    ])
+    
+    # ===== TAB 1: ALERT CHANNELS =====
+    with adv_tab1:
+        st.markdown("### 📧 Email Alerts")
+        
+        col_email1, col_email2 = st.columns(2)
+        
+        with col_email1:
+            email_enabled = st.checkbox(
+                "📧 Enable Email Alerts",
+                value=st.session_state.config_manager.get('senthium.security.alerts.email_enabled', True),
+                help="Send email notifications when intruders detected"
+            )
+            
+            if email_enabled:
+                email_smtp_host = st.text_input(
+                    "SMTP Server",
+                    value=st.session_state.config_manager.get('senthium.security.alerts.email_smtp_host', 'smtp.gmail.com'),
+                    help="e.g., smtp.gmail.com, smtp.office365.com"
+                )
+                
+                email_smtp_port = st.number_input(
+                    "SMTP Port",
+                    value=st.session_state.config_manager.get('senthium.security.alerts.email_smtp_port', 587),
+                    min_value=1,
+                    max_value=65535,
+                    help="Usually 587 for TLS, 465 for SSL"
+                )
+                
+                email_use_tls = st.checkbox(
+                    "Use TLS",
+                    value=st.session_state.config_manager.get('senthium.security.alerts.email_use_tls', True)
+                )
+        
+        with col_email2:
+            if email_enabled:
+                email_from = st.text_input(
+                    "From Email",
+                    value=st.session_state.config_manager.get('senthium.security.alerts.email_from', ''),
+                    help="The email address to send FROM"
+                )
+                
+                email_password = st.text_input(
+                    "Email Password / App Password",
+                    value=st.session_state.config_manager.get('senthium.security.alerts.email_password', ''),
+                    type="password",
+                    help="For Gmail, use an App Password (not your real password!)"
+                )
+                
+                email_to = st.text_input(
+                    "To Email",
+                    value=st.session_state.config_manager.get('senthium.security.alerts.email_to', ''),
+                    help="Email address to send alerts TO"
+                )
+        
+        if email_enabled:
+            st.markdown("---")
+            st.markdown("### 💬 Other Alert Channels")
+            
+            col_alert1, col_alert2, col_alert3 = st.columns(3)
+            
+            with col_alert1:
+                desktop_notification = st.checkbox(
+                    "🔔 Desktop Notifications",
+                    value=st.session_state.config_manager.get('senthium.security.alerts.desktop_notification', True),
+                    help="Show Windows toast notifications"
+                )
+            
+            with col_alert2:
+                sound_alert = st.checkbox(
+                    "🔊 Sound Alerts",
+                    value=st.session_state.config_manager.get('senthium.security.alerts.sound_alert', True),
+                    help="Play beep/alarm sounds"
+                )
+            
+            with col_alert3:
+                log_to_file = st.checkbox(
+                    "📝 Log to File",
+                    value=st.session_state.config_manager.get('senthium.security.alerts.log_to_file', True),
+                    help="Save alerts to log files"
+                )
+        
+        st.markdown("---")
+        if st.button("💾 Save Alert Channel Settings", key="save_adv_alerts"):
+            config = st.session_state.config_manager._config or st.session_state.config_manager.load()
+            
+            if 'alerts' not in config['senthium']['security']:
+                config['senthium']['security']['alerts'] = {}
+            
+            config['senthium']['security']['alerts']['email_enabled'] = email_enabled
+            if email_enabled:
+                config['senthium']['security']['alerts']['email_smtp_host'] = email_smtp_host
+                config['senthium']['security']['alerts']['email_smtp_port'] = email_smtp_port
+                config['senthium']['security']['alerts']['email_use_tls'] = email_use_tls
+                config['senthium']['security']['alerts']['email_from'] = email_from
+                config['senthium']['security']['alerts']['email_password'] = email_password
+                config['senthium']['security']['alerts']['email_to'] = email_to
+                config['senthium']['security']['alerts']['desktop_notification'] = desktop_notification
+                config['senthium']['security']['alerts']['sound_alert'] = sound_alert
+                config['senthium']['security']['alerts']['log_to_file'] = log_to_file
+            
+            if st.session_state.config_manager.save(config):
+                st.success("✅ Alert channel settings saved!")
+                st.info("💡 Restart daemon to apply changes")
+                st.rerun()
+            else:
+                st.error("❌ Failed to save configuration")
+    
+    # ===== TAB 2: DETECTION & RECOGNITION =====
+    with adv_tab2:
+        st.markdown("### 🎯 Face Detection Settings")
+        
+        col_det1, col_det2 = st.columns(2)
+        
+        with col_det1:
+            camera_index = st.number_input(
+                "📹 Camera Index",
+                value=st.session_state.config_manager.get('senthium.security.camera_index', 0),
+                min_value=0,
+                max_value=10,
+                help="Which camera to use (0 = default, 1 = external, etc.)"
+            )
+            
+            detection_model = st.selectbox(
+                "🤖 Detection Model",
+                options=['hog', 'cnn', 'dnn'],
+                index=['hog', 'cnn', 'dnn'].index(st.session_state.config_manager.get('senthium.security.detection_model', 'hog')),
+                help="hog = fast but less accurate, dnn = slower but more accurate, cnn = GPU required"
+            )
+            
+            recognition_tolerance_adv = st.slider(
+                "🎯 Recognition Tolerance",
+                min_value=0.1,
+                max_value=15.0,
+                value=float(st.session_state.config_manager.get('senthium.security.recognition_tolerance', 0.6)),
+                step=0.1,
+                help="Lower = stricter (0.6 = production, 10.0 = testing)"
+            )
+        
+        with col_det2:
+            check_interval_adv = st.slider(
+                "⏱️ Check Interval (seconds)",
+                min_value=1,
+                max_value=60,
+                value=st.session_state.config_manager.get('senthium.security.check_interval_seconds', 5),
+                help="How often to check camera for faces"
+            )
+            
+            notify_on_state_change = st.checkbox(
+                "🔕 Notify Only on State Changes",
+                value=st.session_state.config_manager.get('senthium.security.notify_on_state_change_only', True),
+                help="Don't spam alerts - only notify when state changes (AUTHORIZED → UNAUTHORIZED)"
+            )
+        
+        st.markdown("---")
+        if st.button("💾 Save Detection Settings", key="save_adv_detection"):
+            config = st.session_state.config_manager._config or st.session_state.config_manager.load()
+            
+            config['senthium']['security']['camera_index'] = camera_index
+            config['senthium']['security']['detection_model'] = detection_model
+            config['senthium']['security']['recognition_tolerance'] = recognition_tolerance_adv
+            config['senthium']['security']['check_interval_seconds'] = check_interval_adv
+            config['senthium']['security']['notify_on_state_change_only'] = notify_on_state_change
+            
+            if st.session_state.config_manager.save(config):
+                st.success("✅ Detection settings saved!")
+                st.info("💡 Restart daemon to apply changes")
+                st.rerun()
+            else:
+                st.error("❌ Failed to save configuration")
+    
+    # ===== TAB 3: ACTION BEHAVIORS =====
+    with adv_tab3:
+        st.markdown("### 🔒 Automated Actions")
+        st.info("⚡ Configure what happens automatically when threats are detected")
+        
+        col_act1, col_act2 = st.columns(2)
+        
+        with col_act1:
+            auto_lock_adv = st.checkbox(
+                "🔒 Auto-Lock Screen",
+                value=st.session_state.config_manager.get('senthium.security.auto_lock_on_intruder', True),
+                help="Lock screen when intruder detected"
+            )
+            
+            auto_sleep_adv = st.checkbox(
+                "💤 Auto-Sleep Computer",
+                value=st.session_state.config_manager.get('senthium.security.auto_sleep_on_intruder', False),
+                help="⚠️ Put computer to sleep (requires physical wake-up!)"
+            )
+            
+            play_alarm_adv = st.checkbox(
+                "🚨 Play Alarm Sound",
+                value=st.session_state.config_manager.get('senthium.security.play_alarm_on_intruder', True),
+                help="Play loud alarm to scare intruder"
+            )
+        
+        with col_act2:
+            lock_delay_adv = st.slider(
+                "⏳ Lock Delay (seconds)",
+                min_value=0,
+                max_value=30,
+                value=st.session_state.config_manager.get('senthium.security.unauthorized_lock_delay_seconds', 3),
+                help="Wait this long before locking (gives you time to be recognized)"
+            )
+            
+            grace_period_adv = st.slider(
+                "⏱️ Grace Period (seconds)",
+                min_value=10,
+                max_value=300,
+                value=st.session_state.config_manager.get('senthium.security.grace_period_seconds', 30),
+                help="Time allowed with no face detected before alerting"
+            )
+            
+            alert_cooldown_adv = st.slider(
+                "🔕 Alert Cooldown (seconds)",
+                min_value=30,
+                max_value=3600,
+                value=st.session_state.config_manager.get('senthium.security.alert_cooldown_seconds', 300),
+                help="Don't spam alerts - minimum time between alerts"
+            )
+        
+        st.markdown("---")
+        st.markdown("### 🎬 Critical App Protection Behavior")
+        
+        col_crit1, col_crit2 = st.columns(2)
+        
+        with col_crit1:
+            suppress_lock = st.checkbox(
+                "✋ Suppress Lock",
+                value=st.session_state.config_manager.get('senthium.security.critical_apps.on_critical_running.suppress_lock', True),
+                help="Don't lock screen if critical app running"
+            )
+            
+            send_silent_alert = st.checkbox(
+                "📧 Send Silent Alert",
+                value=st.session_state.config_manager.get('senthium.security.critical_apps.on_critical_running.send_silent_alert', True),
+                help="Still send email/alert but don't lock"
+            )
+        
+        with col_crit2:
+            take_screenshot = st.checkbox(
+                "📸 Take Screenshot",
+                value=st.session_state.config_manager.get('senthium.security.critical_apps.on_critical_running.take_screenshot', True),
+                help="Still save snapshot even if not locking"
+            )
+            
+            show_status = st.checkbox(
+                "📊 Show Status",
+                value=st.session_state.config_manager.get('senthium.security.critical_apps.on_critical_running.show_status', True),
+                help="Log that critical app protection triggered"
+            )
+        
+        st.markdown("---")
+        if st.button("💾 Save Action Behavior Settings", key="save_adv_actions"):
+            config = st.session_state.config_manager._config or st.session_state.config_manager.load()
+            
+            config['senthium']['security']['auto_lock_on_intruder'] = auto_lock_adv
+            config['senthium']['security']['auto_sleep_on_intruder'] = auto_sleep_adv
+            config['senthium']['security']['play_alarm_on_intruder'] = play_alarm_adv
+            config['senthium']['security']['unauthorized_lock_delay_seconds'] = lock_delay_adv
+            config['senthium']['security']['grace_period_seconds'] = grace_period_adv
+            config['senthium']['security']['alert_cooldown_seconds'] = alert_cooldown_adv
+            
+            if 'on_critical_running' not in config['senthium']['security']['critical_apps']:
+                config['senthium']['security']['critical_apps']['on_critical_running'] = {}
+            
+            config['senthium']['security']['critical_apps']['on_critical_running']['suppress_lock'] = suppress_lock
+            config['senthium']['security']['critical_apps']['on_critical_running']['send_silent_alert'] = send_silent_alert
+            config['senthium']['security']['critical_apps']['on_critical_running']['take_screenshot'] = take_screenshot
+            config['senthium']['security']['critical_apps']['on_critical_running']['show_status'] = show_status
+            
+            if st.session_state.config_manager.save(config):
+                st.success("✅ Action behavior settings saved!")
+                st.info("💡 Restart daemon to apply changes")
+                st.rerun()
+            else:
+                st.error("❌ Failed to save configuration")
+    
+    # ===== TAB 4: MONITORING & LOGGING =====
+    with adv_tab4:
+        st.markdown("### 📊 System Monitoring")
+        
+        col_mon1, col_mon2 = st.columns(2)
+        
+        with col_mon1:
+            log_level = st.selectbox(
+                "📝 Log Level",
+                options=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                index=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'].index(
+                    st.session_state.config_manager.get('senthium.log_level', 'INFO')
+                ),
+                help="DEBUG = verbose, INFO = normal, WARNING/ERROR = quiet"
+            )
+            
+            max_awake_hours = st.slider(
+                "⏰ Max Awake Duration (hours)",
+                min_value=1,
+                max_value=24,
+                value=st.session_state.config_manager.get('senthium.max_awake_duration', 14400) // 3600,
+                help="Maximum time to keep system awake (safety limit)"
+            )
+        
+        with col_mon2:
+            poll_interval = st.slider(
+                "🔄 Poll Interval (seconds)",
+                min_value=1,
+                max_value=60,
+                value=st.session_state.config_manager.get('senthium.poll_interval', 5),
+                help="How often daemon checks system state"
+            )
+        
+        st.markdown("---")
+        st.markdown("### 🔍 Intruder Pattern Tracking")
+        
+        col_pat_adv1, col_pat_adv2 = st.columns(2)
+        
+        with col_pat_adv1:
+            pattern_similarity = st.slider(
+                "🎯 Pattern Similarity",
+                min_value=0.1,
+                max_value=1.0,
+                value=float(st.session_state.config_manager.get('senthium.security.intruder_patterns.similarity_threshold', 0.6)),
+                step=0.05,
+                help="Face similarity for pattern matching"
+            )
+        
+        with col_pat_adv2:
+            pattern_threshold = st.number_input(
+                "⚠️ Pattern Alert Threshold",
+                min_value=1,
+                max_value=20,
+                value=st.session_state.config_manager.get('senthium.security.intruder_patterns.alert_threshold', 3),
+                help="Alert after X repeat detections"
+            )
+            
+            pattern_time_window = st.slider(
+                "⏰ Time Window (hours)",
+                min_value=1,
+                max_value=168,
+                value=st.session_state.config_manager.get('senthium.security.intruder_patterns.time_window_hours', 24),
+                help="Consider patterns within this time window"
+            )
+        
+        st.markdown("---")
+        if st.button("💾 Save Monitoring Settings", key="save_adv_monitoring"):
+            config = st.session_state.config_manager._config or st.session_state.config_manager.load()
+            
+            config['senthium']['log_level'] = log_level
+            config['senthium']['max_awake_duration'] = max_awake_hours * 3600
+            config['senthium']['poll_interval'] = poll_interval
+            
+            if 'intruder_patterns' not in config['senthium']['security']:
+                config['senthium']['security']['intruder_patterns'] = {}
+            
+            config['senthium']['security']['intruder_patterns']['similarity_threshold'] = pattern_similarity
+            config['senthium']['security']['intruder_patterns']['alert_threshold'] = pattern_threshold
+            config['senthium']['security']['intruder_patterns']['time_window_hours'] = pattern_time_window
+            
+            if st.session_state.config_manager.save(config):
+                st.success("✅ Monitoring settings saved!")
                 st.info("💡 Restart daemon to apply changes")
                 st.rerun()
             else:

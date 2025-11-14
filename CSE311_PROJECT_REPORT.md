@@ -1,5 +1,5 @@
 # SENTHIUM AI: INTELLIGENT SECURITY SYSTEM WITH FACIAL RECOGNITION
-
+## github : https://github.com/shivadeepak99/senthium-ai
 ---
 
 **CSE 311 - Artificial Intelligence**  
@@ -8,6 +8,7 @@
 **Student Name:** Shanigaram Shivadeepak
 **Register Number:** 2023bcd0048  
 **Date:** November 13, 2025
+
 
 ---
 

@@ -701,7 +701,8 @@ class SenthiumDaemon:
 
 
 # Example usage / testing
-if __name__ == '__main__':
+def main():
+    """Main entry point for the Senthium daemon"""
     from src.utils.logger import setup_logger
     from src.utils.pid import PIDFile
     import argparse
@@ -751,3 +752,7 @@ if __name__ == '__main__':
     except Exception as e:
         logger.exception(f"Fatal error: {e}")
         sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

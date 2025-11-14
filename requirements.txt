@@ -32,7 +32,7 @@ plyer; platform_system!='Windows'  # Cross-platform notifications (Linux/macOS)
 pytest                 # Testing framework
 pytest-cov             # Coverage plugin for pytest
 pytest-mock            # Mocking plugin for pytest
-
+pyttsx3
 # Development Tools (optional)
 black                  # Code formatter
 flake8                 # Linter

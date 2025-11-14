@@ -1,1 +1,0 @@
-{"start_time": "2025-10-27T19:14:29.980451", "end_time": "2025-10-27T19:15:15.078965", "duration_seconds": 45.098514, "trigger_reason": "rule_match", "rule_name": "Build Tasks", "process_name": null, "metrics_snapshot": {"cpu": 34.2, "disk_read": 0.0, "disk_write": 0.0, "network_down": 0.0, "network_up": 0.0}}

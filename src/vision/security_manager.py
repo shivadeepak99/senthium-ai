@@ -18,6 +18,14 @@ from src.alerts.notifier import AlertNotifier, SecurityAlert, AlertType
 from src.actions.system_actions import SystemActions
 from src.detection.intruder_patterns import IntruderPatternDetector
 
+# 👻 Haunting mode (creepy deterrent)
+try:
+    from src.effects.haunting_mode import HauntingMode
+    HAUNTING_AVAILABLE = True
+except ImportError:
+    HAUNTING_AVAILABLE = False
+    HauntingMode = None
+
 # Optional: psutil for critical apps detection
 try:
     import psutil
@@ -86,6 +94,19 @@ class SecurityManager:
                 alert_threshold=pattern_config.get('alert_threshold', 3),
                 time_window_hours=pattern_config.get('time_window_hours', 24)
             )
+        
+        # 👻 Haunting mode (creepy psychological deterrent)
+        self.haunting_mode = None
+        if HAUNTING_AVAILABLE:
+            # Check both old location (root) and new location (under security)
+            haunting_config = self.config.get('haunting_mode') or {}
+            if haunting_config.get('enabled', False):
+                self.haunting_mode = HauntingMode(config=haunting_config)
+                logger.info("👻 Haunting mode ENABLED - intruders beware!")
+            else:
+                logger.info("👻 Haunting mode disabled")
+        else:
+            logger.warning("👻 Haunting mode unavailable (missing pyttsx3)")
         
         # System actions (lock, sleep, shutdown)
         self.system_actions = SystemActions()
@@ -461,6 +482,13 @@ class SecurityManager:
                 if unauthorized_duration < self.lock_delay:
                     logger.warning(f"⏱️ TIER 1: Intruder detected, waiting {self.lock_delay - unauthorized_duration:.1f}s before locking...")
                     
+                    # 👻 TRIGGER HAUNTING MODE (Level 1 - soft warning)
+                    if self.haunting_mode:
+                        haunt_result = self.haunting_mode.haunt(duration_seconds=unauthorized_duration, force_level=1)
+                        if haunt_result.get('haunted'):
+                            logger.warning(f"👻 Haunting mode activated: {haunt_result.get('effects', [])}")
+                            action_taken.append("haunting_whisper")
+                    
                     # Take screenshot + send email (no lock yet)
                     if self.notifier.should_send_alert(self.alert_cooldown):
                         alert = SecurityAlert(
@@ -511,6 +539,14 @@ class SecurityManager:
                             logger.error("❌ Failed to lock screen - check permissions!")
                     except Exception as e:
                         logger.error(f"❌ Lock screen failed: {e}")
+                
+                # 👻 TRIGGER HAUNTING MODE (Level 2/3 - AGGRESSIVE ESCALATION)
+                # Auto-escalates based on duration: Level 2 (5-15s), Level 3 (15s+)
+                if self.haunting_mode:
+                    haunt_result = self.haunting_mode.haunt(duration_seconds=unauthorized_duration)
+                    if haunt_result.get('haunted'):
+                        logger.critical(f"👻 FULL HAUNTING MODE: {haunt_result.get('effects', [])} - Duration: {unauthorized_duration:.1f}s")
+                        action_taken.append("haunting_terror")
                 
                 # Optional: Put computer to sleep (nuclear option)
                 if self.auto_sleep_on_intruder:
