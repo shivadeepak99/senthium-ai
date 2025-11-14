@@ -1,0 +1,72 @@
+{
+  "intruder_1_20251114": {
+    "pattern_id": "intruder_1_20251114",
+    "first_seen": "2025-11-14T10:12:48.016460",
+    "last_seen": "2025-11-14T10:12:48.016460",
+    "count": 2,
+    "timestamps": [
+      "2025-11-14T10:12:48.016460",
+      "2025-11-14T10:12:48.016460"
+    ],
+    "snapshot_paths": [
+      "logs\\security\\snapshots\\intruder_20251114_101250.jpg"
+    ],
+    "threat_level": "LOW"
+  },
+  "intruder_2_20251114": {
+    "pattern_id": "intruder_2_20251114",
+    "first_seen": "2025-11-14T10:13:08.848951",
+    "last_seen": "2025-11-14T10:13:08.848951",
+    "count": 2,
+    "timestamps": [
+      "2025-11-14T10:13:08.848951",
+      "2025-11-14T10:13:08.848951"
+    ],
+    "snapshot_paths": [
+      "logs\\security\\snapshots\\intruder_20251114_101309.jpg"
+    ],
+    "threat_level": "LOW"
+  },
+  "intruder_3_20251114": {
+    "pattern_id": "intruder_3_20251114",
+    "first_seen": "2025-11-14T10:13:14.062537",
+    "last_seen": "2025-11-14T10:13:14.062537",
+    "count": 2,
+    "timestamps": [
+      "2025-11-14T10:13:14.062537",
+      "2025-11-14T10:13:14.062537"
+    ],
+    "snapshot_paths": [
+      "logs\\security\\snapshots\\intruder_20251114_101314.jpg"
+    ],
+    "threat_level": "LOW"
+  },
+  "intruder_4_20251114": {
+    "pattern_id": "intruder_4_20251114",
+    "first_seen": "2025-11-14T10:13:19.298099",
+    "last_seen": "2025-11-14T10:13:19.298099",
+    "count": 2,
+    "timestamps": [
+      "2025-11-14T10:13:19.298099",
+      "2025-11-14T10:13:19.298099"
+    ],
+    "snapshot_paths": [
+      "logs\\security\\snapshots\\intruder_20251114_101319.jpg"
+    ],
+    "threat_level": "LOW"
+  },
+  "intruder_5_20251114": {
+    "pattern_id": "intruder_5_20251114",
+    "first_seen": "2025-11-14T10:13:29.692072",
+    "last_seen": "2025-11-14T10:13:29.692072",
+    "count": 2,
+    "timestamps": [
+      "2025-11-14T10:13:29.692072",
+      "2025-11-14T10:13:29.692072"
+    ],
+    "snapshot_paths": [
+      "logs\\security\\snapshots\\intruder_20251114_101329.jpg"
+    ],
+    "threat_level": "LOW"
+  }
+}

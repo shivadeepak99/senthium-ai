@@ -110,8 +110,16 @@ class SecurityManager:
         self.critical_apps_behavior = critical_apps_config.get('on_critical_running', {})
         
         # ⏱️ Grace period & lock delay
-        self.grace_period = self.config.get('grace_period_seconds', 30)
-        self.lock_delay = self.config.get('unauthorized_lock_delay_seconds', 3)
+        self.grace_period = self.config.get('grace_period_seconds', 30) or 30
+        self.lock_delay = self.config.get('unauthorized_lock_delay_seconds', 3) or 3
+        
+        # 🛡️ Safety: Ensure critical values are never None
+        if self.lock_delay is None:
+            logger.error("⚠️ lock_delay was None! Forcing default value of 3 seconds")
+            self.lock_delay = 3
+        if self.grace_period is None:
+            logger.error("⚠️ grace_period was None! Forcing default value of 30 seconds")
+            self.grace_period = 30
         
         # 🔥 DEBUG: Log the loaded values with their types
         logger.debug(f"🔍 CONFIG DEBUG:")
@@ -283,7 +291,7 @@ class SecurityManager:
                 
                 # 🗑️ Auto-cleanup old snapshots (keep max 100, 7 days)
                 cleaned = self.camera.cleanup_old_snapshots(max_age_days=7, max_files=100)
-                if cleaned > 0:
+                if cleaned and cleaned > 0:
                     logger.debug(f"🗑️ Cleaned up {cleaned} old snapshot(s)")
                 
                 # Record intruder pattern
