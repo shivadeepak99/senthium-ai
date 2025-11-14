@@ -2817,6 +2817,273 @@ elif page == "⚙️ Settings":
     
     st.markdown("---")
     
+    # ===== TIMING & DETECTION SETTINGS =====
+    st.subheader("⏱️ Timing & Detection Settings")
+    st.markdown("""
+    **Fine-tune when and how the system responds to threats**
+    """)
+    
+    col_time1, col_time2 = st.columns(2)
+    
+    with col_time1:
+        lock_delay = st.slider(
+            "🔒 Lock Delay (seconds)",
+            min_value=0,
+            max_value=30,
+            value=st.session_state.config_manager.get('senthium.security.unauthorized_lock_delay_seconds', 3),
+            help="Wait this long before locking screen (gives you time to look at camera)"
+        )
+        
+        check_interval = st.slider(
+            "📹 Security Check Interval (seconds)",
+            min_value=1,
+            max_value=30,
+            value=st.session_state.config_manager.get('senthium.security.check_interval_seconds', 5),
+            help="How often to check camera for intruders"
+        )
+        
+        grace_period = st.slider(
+            "⏳ No-Face Grace Period (seconds)",
+            min_value=10,
+            max_value=120,
+            value=st.session_state.config_manager.get('senthium.security.grace_period_seconds', 30),
+            help="Allow this long with no face detected before alerting"
+        )
+    
+    with col_time2:
+        alert_cooldown = st.slider(
+            "📧 Alert Cooldown (seconds)",
+            min_value=60,
+            max_value=1800,
+            value=st.session_state.config_manager.get('senthium.security.alert_cooldown_seconds', 300),
+            help="Don't spam alerts - wait this long between alerts"
+        )
+        
+        recognition_tolerance = st.slider(
+            "🎯 Face Recognition Tolerance",
+            min_value=0.1,
+            max_value=15.0,
+            value=float(st.session_state.config_manager.get('senthium.security.recognition_tolerance', 0.6)),
+            step=0.1,
+            help="Lower = stricter matching (0.6 = normal, 10.0 = very loose for testing)"
+        )
+        
+        if recognition_tolerance > 5.0:
+            st.warning(f"⚠️ Very loose tolerance ({recognition_tolerance}) - for testing only!")
+    
+    if st.button("💾 Save Timing Settings", key="save_timing"):
+        config = st.session_state.config_manager._config or st.session_state.config_manager.load()
+        
+        config['senthium']['security']['unauthorized_lock_delay_seconds'] = lock_delay
+        config['senthium']['security']['check_interval_seconds'] = check_interval
+        config['senthium']['security']['grace_period_seconds'] = grace_period
+        config['senthium']['security']['alert_cooldown_seconds'] = alert_cooldown
+        config['senthium']['security']['recognition_tolerance'] = recognition_tolerance
+        
+        if st.session_state.config_manager.save(config):
+            st.success("✅ Timing settings saved!")
+            st.info("💡 Restart daemon to apply changes")
+            st.rerun()
+        else:
+            st.error("❌ Failed to save configuration")
+    
+    st.markdown("---")
+    
+    # ===== CRITICAL APPS PROTECTION =====
+    st.subheader("🎬 Critical Apps Protection")
+    st.markdown("""
+    **Prevent screen lock when important apps are running**
+    
+    If you're recording a video or rendering, you don't want the screen to lock!
+    """)
+    
+    critical_apps_enabled = st.checkbox(
+        "🛡️ Enable Critical Apps Protection",
+        value=st.session_state.config_manager.get('senthium.security.critical_apps.enabled', True),
+        help="Suppress screen lock when critical apps are running"
+    )
+    
+    if critical_apps_enabled:
+        current_apps = st.session_state.config_manager.get('senthium.security.critical_apps.process_names', [
+            'obs64.exe', 'python.exe', 'ffmpeg.exe', 'blender.exe'
+        ])
+        
+        st.info("🎯 **How it works:** If any of these apps are running, the system will STILL save snapshots and send alerts, but WON'T lock your screen.")
+        
+        # Let user add/remove apps
+        new_app = st.text_input("➕ Add Process Name", placeholder="example.exe", help="Add a process to protect")
+        
+        col_add, col_clear = st.columns([1, 3])
+        with col_add:
+            if st.button("➕ Add", key="add_critical_app"):
+                if new_app and new_app not in current_apps:
+                    current_apps.append(new_app)
+                    st.success(f"✅ Added {new_app}")
+        
+        # Show current list with delete buttons
+        st.markdown("**Protected Processes:**")
+        for idx, app in enumerate(current_apps):
+            col_app, col_del = st.columns([4, 1])
+            with col_app:
+                st.code(app)
+            with col_del:
+                if st.button("🗑️", key=f"del_app_{idx}"):
+                    current_apps.remove(app)
+                    st.success(f"Removed {app}")
+                    st.rerun()
+    else:
+        current_apps = []
+    
+    if st.button("💾 Save Critical Apps", key="save_critical_apps"):
+        config = st.session_state.config_manager._config or st.session_state.config_manager.load()
+        
+        config['senthium']['security']['critical_apps']['enabled'] = critical_apps_enabled
+        config['senthium']['security']['critical_apps']['process_names'] = current_apps
+        
+        if st.session_state.config_manager.save(config):
+            st.success("✅ Critical apps settings saved!")
+            st.info("💡 Restart daemon to apply changes")
+            st.rerun()
+        else:
+            st.error("❌ Failed to save configuration")
+    
+    st.markdown("---")
+    
+    # ===== HAUNTING MODE =====
+    st.subheader("👻 Haunting Mode (Creepy Intruder Deterrent)")
+    st.markdown("""
+    **Make your PC TERRIFYING for intruders!** 😱
+    
+    Play creepy TTS whispers, glitch the screen, show eyes watching them...
+    """)
+    
+    haunting_enabled = st.checkbox(
+        "👻 Enable Haunting Mode",
+        value=st.session_state.config_manager.get('senthium.haunting_mode.enabled', False),
+        help="Scare the hell out of intruders with creepy effects"
+    )
+    
+    if haunting_enabled:
+        st.warning("⚠️ **WARNING:** This mode uses Text-to-Speech, screen effects, and sounds to SCARE intruders. Very effective but also very creepy! 😱")
+        
+        col_haunt1, col_haunt2 = st.columns(2)
+        
+        with col_haunt1:
+            glitch_screen = st.checkbox(
+                "🌀 Glitch Screen",
+                value=st.session_state.config_manager.get('senthium.haunting_mode.glitch_screen', True)
+            )
+            
+            show_eyes = st.checkbox(
+                "👀 Show Watching Eyes",
+                value=st.session_state.config_manager.get('senthium.haunting_mode.show_eyes', True)
+            )
+            
+            play_sounds = st.checkbox(
+                "🔊 Play Creepy Sounds",
+                value=st.session_state.config_manager.get('senthium.haunting_mode.play_sounds', True)
+            )
+        
+        with col_haunt2:
+            whisper_interval = st.slider(
+                "🗣️ Whisper Interval (seconds)",
+                min_value=10,
+                max_value=120,
+                value=st.session_state.config_manager.get('senthium.haunting_mode.whisper_interval_seconds', 60)
+            )
+            
+            tts_volume = st.slider(
+                "🔊 TTS Volume",
+                min_value=0.0,
+                max_value=1.0,
+                value=float(st.session_state.config_manager.get('senthium.haunting_mode.tts_volume', 0.8)),
+                step=0.1
+            )
+        
+        st.markdown("**Whisper Messages:**")
+        whisper_msgs = st.text_area(
+            "Creepy messages to speak",
+            value="\n".join(st.session_state.config_manager.get('senthium.haunting_mode.whisper_messages', [
+                "I can see you...",
+                "You shouldn't be here...",
+                "Security has been notified..."
+            ])),
+            height=150,
+            help="One message per line"
+        )
+        
+        if st.button("💾 Save Haunting Mode", key="save_haunting"):
+            config = st.session_state.config_manager._config or st.session_state.config_manager.load()
+            
+            config['senthium']['haunting_mode']['enabled'] = haunting_enabled
+            config['senthium']['haunting_mode']['glitch_screen'] = glitch_screen
+            config['senthium']['haunting_mode']['show_eyes'] = show_eyes
+            config['senthium']['haunting_mode']['play_sounds'] = play_sounds
+            config['senthium']['haunting_mode']['whisper_interval_seconds'] = whisper_interval
+            config['senthium']['haunting_mode']['tts_volume'] = tts_volume
+            config['senthium']['haunting_mode']['whisper_messages'] = [msg.strip() for msg in whisper_msgs.split('\n') if msg.strip()]
+            
+            if st.session_state.config_manager.save(config):
+                st.success("✅ Haunting mode saved! 👻")
+                st.info("💡 Restart daemon to apply changes")
+                st.rerun()
+            else:
+                st.error("❌ Failed to save configuration")
+    
+    st.markdown("---")
+    
+    # ===== INTRUDER PATTERN DETECTION =====
+    st.subheader("🔍 Intruder Pattern Detection")
+    st.markdown("""
+    **Track repeat offenders!**
+    
+    Detect when the same intruder appears multiple times and escalate alerts.
+    """)
+    
+    pattern_enabled = st.checkbox(
+        "🔍 Enable Pattern Detection",
+        value=st.session_state.config_manager.get('senthium.security.intruder_patterns.enabled', True),
+        help="Track repeat intruders and escalate alerts"
+    )
+    
+    if pattern_enabled:
+        col_pat1, col_pat2 = st.columns(2)
+        
+        with col_pat1:
+            similarity_threshold = st.slider(
+                "🎯 Face Similarity Threshold",
+                min_value=0.1,
+                max_value=1.0,
+                value=float(st.session_state.config_manager.get('senthium.security.intruder_patterns.similarity_threshold', 0.6)),
+                step=0.05,
+                help="How similar faces need to be to match (lower = stricter)"
+            )
+        
+        with col_pat2:
+            alert_threshold = st.number_input(
+                "⚠️ Alert After X Detections",
+                min_value=1,
+                max_value=10,
+                value=st.session_state.config_manager.get('senthium.security.intruder_patterns.alert_threshold', 3),
+                help="Send escalated alert after this many detections"
+            )
+        
+        if st.button("💾 Save Pattern Detection", key="save_patterns"):
+            config = st.session_state.config_manager._config or st.session_state.config_manager.load()
+            
+            config['senthium']['security']['intruder_patterns']['enabled'] = pattern_enabled
+            config['senthium']['security']['intruder_patterns']['similarity_threshold'] = similarity_threshold
+            config['senthium']['security']['intruder_patterns']['alert_threshold'] = alert_threshold
+            
+            if st.session_state.config_manager.save(config):
+                st.success("✅ Pattern detection saved!")
+                st.info("💡 Restart daemon to apply changes")
+                st.rerun()
+            else:
+                st.error("❌ Failed to save configuration")
+    
+    st.markdown("---")
+    
     # ===== ALERT CONFIGURATION =====
     st.subheader("📢 Alert Configuration")
     
