@@ -86,8 +86,8 @@ You need to leave your PC running (downloads, renders, backups), but you can't s
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/senthium.git
-cd senthium
+git clone https://github.com/shivadeepak99/senthium-ai.git
+cd senthium-ai
 
 # Install with pip
 pip install -e .
@@ -334,10 +334,10 @@ senthium/
 - ✅ **v0.1**: System monitoring foundation
 - ✅ **v0.2**: Rules engine (5 rule types)
 - ✅ **v0.3**: Daemon core (state machine, power management)
-- ✅ **v0.4**: IPC + CLI wrapper + daemon management (Current)
-- 🚧 **v0.5**: systemd/Windows service integration
-- 🚧 **v0.6**: GUI configuration tool
-- 🚧 **v1.0**: Public release
+- ✅ **v0.4**: IPC + CLI wrapper + daemon management
+- ✅ **v0.5**: systemd/Windows service integration
+- ✅ **v0.6**: Streamlit web dashboard + face recognition security (Current)
+- 🚧 **v1.0**: Public release — packaging, onboarding, hardening
 
 ---
 
@@ -362,6 +362,6 @@ MIT License - See [LICENSE](LICENSE) file for details.
 
 Built with love by a developer who got tired of interrupted downloads 💪
 
-**Tech Stack**: Python • psutil • pytest • colorlog • PyYAML
+**Tech Stack**: Python • OpenCV • DeepFace • psutil • Streamlit • Go (WebSocket server) • Next.js • pytest • colorlog • PyYAML
 
 **Special Thanks**: Everyone who's had their PC sleep mid-compile 😅

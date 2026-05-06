@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.pyo
+*.pyd
 .Python
 build/
 develop-eggs/
@@ -10,25 +12,22 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 
 # Virtual Environments
 venv/
+venv311/
 ENV/
 env/
+.venv/
 .venv
 
-# IDEs
+# IDEs and editors
 .vscode/
 .idea/
+.vs/
 *.swp
 *.swo
 *~
@@ -42,22 +41,46 @@ Thumbs.db
 .coverage
 htmlcov/
 .tox/
+coverage.xml
 
-# Logs
-logs/*.log
+# Logs (runtime-generated)
+logs/
 *.log
 
-# Config (user-specific)
+# Config (user-specific, never commit real credentials)
 config/config.yaml
 !config/config.example.yaml
+!config/examples/
 
 # Distribution
 *.whl
 *.tar.gz
+sdist/
+wheels/
+dist/
+build/
 
-# Jupyter Notebooks
-.ipynb_checkpoints
+# Jupyter
+.ipynb_checkpoints/
 
 # Environment variables
 .env
 .env.local
+.env.*.local
+
+# Face data — biometric, never commit
+data/faces/
+data/training/
+data/snapshots/
+
+# Security logs — may contain intruder photos, never commit
+logs/security/
+
+# Runtime backup directories
+logs_backup_*/
+
+# PowerShell artifacts
+$null
+
+# Claude
+.claude/
